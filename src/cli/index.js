@@ -17,6 +17,8 @@ import { sessionsCommand } from './sessions.js';
 import { renameCommand } from './rename.js';
 import { aliasCommand } from './alias.js';
 import { inviteCommand } from './invite.js';
+import { permitCommand } from './permit.js';
+import { removeCommand } from './remove.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -75,10 +77,21 @@ program.command('rename <alias>').description('Rename this session').action(rena
 program.command('alias <sessionId> <newAlias>').description('Rename a specific session by id').action(aliasCommand);
 program.command('invite <alias>').description('Reserve an alias for a future session').action(inviteCommand);
 
+program
+  .command('permit <sessionOrAlias>')
+  .description('Grant autonomous-write permission')
+  .option('--once', 'Allow exactly one autonomous write', false)
+  .option('--duration <duration>', 'Allow for a duration like 30m, 2h')
+  .option('--always', 'Allow indefinitely (revoke with `walkie remove`)', false)
+  .action(permitCommand);
+
+program
+  .command('remove <sessionOrAlias>')
+  .description('Remove autonomous-write permission')
+  .action(removeCommand);
+
 // Placeholder subcommands — replaced in tasks 29-33 with real implementations.
 const placeholders = [
-  ['permit', 'Grant autonomous-write permission to a session'],
-  ['remove', 'Remove autonomous-write permission from a session'],
   ['config', 'View or edit channel config'],
   ['logs', 'View activity logs']
 ];
