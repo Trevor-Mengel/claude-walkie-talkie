@@ -1,8 +1,10 @@
 import { writeFile, rename, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import lockfile from 'proper-lockfile';
 import { parseMessage, formatMessage } from './format.js';
 import { newId } from './ids.js';
+import { appendRevision } from './history.js';
+import { now } from './time.js';
 
 const HEADER_END = '<!-- WALKIE:HEADER_END -->';
 
@@ -99,6 +101,63 @@ export async function appendMessage(path, msgInput) {
   });
 
   return msg.id;
+}
+
+/**
+ * Edit a message's body in place. Bumps revision, appends prior body to history.
+ * @param {string} path channel.md path
+ * @param {string} msgId
+ * @param {string} newBody
+ * @param {string} editedBy session id
+ * @returns {Promise<{revision:number}>}
+ */
+export async function editMessage(path, msgId, newBody, editedBy) {
+  const escaped = msgId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match from \n## heading line through end of the block (up to next \n## or end-of-string).
+  // Uses a negative-lookahead walk: (?:[\s\S](?!\n## ))* to consume chars without crossing next heading.
+  const blockRe = new RegExp(
+    `(\\n## [^\\n]+\\n<!--\\s*walkie:msg\\s+[^\\n]*\\bid=${escaped}\\b[^\\n]*-->(?:[\\s\\S](?!\\n## ))*[\\s\\S]?)`,
+    'm'
+  );
+
+  return withChannelLock(path, async () => {
+    const text = await readFile(path, 'utf8');
+    const blockMatch = text.match(blockRe);
+    if (!blockMatch) throw new Error(`Message ${msgId} not found`);
+    const block = blockMatch[1];
+    const parsed = parseMessage(block.replace(/^\n/, ''));
+    if (!parsed) throw new Error(`Cannot parse message ${msgId}`);
+    const priorBody = (parsed.body ?? '').trim();
+    const currentRevision = parsed.revision ?? 0;
+    const nextRevision = currentRevision + 1;
+    const editedAt = now();
+    const sessionsDir = join(dirname(path), '.sessions');
+    await appendRevision(sessionsDir, msgId, {
+      revision: nextRevision,
+      editedAt,
+      editedBy,
+      priorBody
+    });
+    // Rebuild the block using formatMessage with updated fields.
+    // parseMessage captures fromAlias, fromSessionId, revision, editedAt, mentions, etc.
+    // fromTool and timestamp are not captured by parseMessage — use safe fallbacks.
+    const rebuilt = '\n' + formatMessage({
+      ...parsed,
+      body: newBody,
+      revision: nextRevision,
+      editedAt,
+      fromTool: parsed.fromTool ?? 'operator',
+      fromAlias: parsed.fromAlias ?? parsed.fromSessionId,
+      timestamp: parsed.timestamp ?? now(),
+      git: parsed.git ?? { branch: null, hash: null, userName: null, userEmail: null }
+    });
+    const updated = text.replace(block, rebuilt);
+    const tmpPath = `${path}.tmp.edit-${msgId}`;
+    await writeFile(tmpPath, updated, 'utf8');
+    INTERNAL_WRITE_FLAG.set(path, Date.now());
+    await rename(tmpPath, path);
+    return { revision: nextRevision };
+  });
 }
 
 /**

@@ -1,6 +1,8 @@
 import { describe, test, expect, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseChannel, readChannel, appendMessage } from '../../src/core/channel.js';
+import { join } from 'node:path';
+import { parseChannel, readChannel, appendMessage, editMessage } from '../../src/core/channel.js';
+import { readHistory } from '../../src/core/history.js';
 import { createTmpProject, cleanup } from '../helpers/tmp-project.js';
 
 let project;
@@ -96,5 +98,37 @@ describe('channel append', () => {
     const text = readFileSync(project.channelPath, 'utf8');
     expect(text).toContain('<!-- WALKIE:HEADER_END -->');
     expect(text).toContain('atomic');
+  });
+});
+
+describe('channel edit', () => {
+  test('editMessage rewrites body, bumps revision, writes prior body to history', async () => {
+    project = createTmpProject();
+    const id = await appendMessage(project.channelPath, {
+      type: 'broadcast',
+      fromSessionId: 'operator',
+      fromAlias: 'Trevor',
+      fromTool: 'operator',
+      mentions: [],
+      timestamp: '2026-05-14T15:32:00.000Z',
+      git: { branch: null, hash: null, userName: null, userEmail: null },
+      body: 'original body'
+    });
+    const result = await editMessage(project.channelPath, id, 'updated body', 'operator');
+    expect(result.revision).toBe(1);
+    const text = readFileSync(project.channelPath, 'utf8');
+    expect(text).toContain('updated body');
+    expect(text).not.toMatch(/^original body$/m);
+    expect(text).toContain(`revision=1`);
+    const history = await readHistory(join(project.wtDir, '.sessions'), id);
+    expect(history.length).toBe(1);
+    expect(history[0].body).toBe('original body');
+  });
+
+  test('editMessage throws for unknown message id', async () => {
+    project = createTmpProject();
+    await expect(
+      editMessage(project.channelPath, '01NOTHERE', 'x', 'operator')
+    ).rejects.toThrow(/not found/i);
   });
 });
