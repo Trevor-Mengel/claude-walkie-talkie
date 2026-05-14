@@ -10,7 +10,13 @@ function registryPath() {
 async function loadRegistry() {
   const p = registryPath();
   if (!existsSync(p)) return { projects: [] };
-  return JSON.parse(await readFile(p, 'utf8'));
+  try {
+    return JSON.parse(await readFile(p, 'utf8'));
+  } catch {
+    // Registry is corrupt (e.g. concurrent writes from crashed test daemons).
+    // Recover by starting fresh; existing entries are stale anyway.
+    return { projects: [] };
+  }
 }
 
 async function saveRegistry(data) {
