@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initCommand } from './init.js';
+import { startCommand } from './start.js';
+import { stopCommand } from './stop.js';
+import { statusCommand } from './status.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -24,9 +27,6 @@ program
 
 // Placeholder subcommands — replaced in tasks 27-33 with real implementations.
 const placeholders = [
-  ['start', 'Start the local daemon'],
-  ['stop', 'Stop the local daemon'],
-  ['status', 'Show daemon and channel status'],
   ['talk', 'Broadcast a message (use @mentions to direct attention)'],
   ['read', 'Read recent messages'],
   ['tail', 'Stream the live event feed'],
@@ -48,5 +48,13 @@ for (const [name, desc] of placeholders) {
     process.exit(2);
   });
 }
+
+program.command('start').description('Start the local daemon').action(startCommand);
+program.command('stop').description('Stop the local daemon').action(stopCommand);
+program
+  .command('status')
+  .description('Show daemon and channel status')
+  .option('--all', 'List all walkie projects machine-wide')
+  .action(statusCommand);
 
 program.parseAsync(process.argv);
