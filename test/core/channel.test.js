@@ -1,7 +1,7 @@
 import { describe, test, expect, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseChannel, readChannel, appendMessage, editMessage } from '../../src/core/channel.js';
+import { parseChannel, readChannel, appendMessage, editMessage, archiveMessage } from '../../src/core/channel.js';
 import { readHistory } from '../../src/core/history.js';
 import { createTmpProject, cleanup } from '../helpers/tmp-project.js';
 
@@ -129,6 +129,36 @@ describe('channel edit', () => {
     project = createTmpProject();
     await expect(
       editMessage(project.channelPath, '01NOTHERE', 'x', 'operator')
+    ).rejects.toThrow(/not found/i);
+  });
+});
+
+describe('channel archive', () => {
+  test('archiveMessage marks the marker and inserts ARCHIVED banner', async () => {
+    project = createTmpProject();
+    const id = await appendMessage(project.channelPath, {
+      type: 'broadcast',
+      fromSessionId: 'operator',
+      fromAlias: 'Trevor',
+      fromTool: 'operator',
+      mentions: [],
+      timestamp: '2026-05-14T15:32:00.000Z',
+      git: { branch: null, hash: null, userName: null, userEmail: null },
+      body: 'old content'
+    });
+    await archiveMessage(project.channelPath, id, 'operator', 'duplicate');
+    const fs = await import('node:fs');
+    const text = fs.readFileSync(project.channelPath, 'utf8');
+    expect(text).toContain('archived=true');
+    expect(text).toContain('archived-by=operator');
+    expect(text).toContain('archived-reason="duplicate"');
+    expect(text).toContain('🗄️ ARCHIVED');
+  });
+
+  test('archiveMessage throws for unknown id', async () => {
+    project = createTmpProject();
+    await expect(
+      archiveMessage(project.channelPath, '01NONE', 'operator', null)
     ).rejects.toThrow(/not found/i);
   });
 });

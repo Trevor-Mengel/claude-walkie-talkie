@@ -161,6 +161,46 @@ export async function editMessage(path, msgId, newBody, editedBy) {
 }
 
 /**
+ * Archive a message in place. Marker gets archived=true, archived-by, archived-reason.
+ * Block re-rendered with banner via formatMessage.
+ * @param {string} path
+ * @param {string} msgId
+ * @param {string} archivedBy
+ * @param {string|null} reason
+ */
+export async function archiveMessage(path, msgId, archivedBy, reason) {
+  const escaped = msgId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match from \n## heading line through end of the block (up to next \n## or end-of-string).
+  // Uses a negative-lookahead walk: (?:[\s\S](?!\n## ))* to consume chars without crossing next heading.
+  const blockRe = new RegExp(
+    `(\\n## [^\\n]+\\n<!--\\s*walkie:msg\\s+[^\\n]*\\bid=${escaped}\\b[^\\n]*-->(?:[\\s\\S](?!\\n## ))*[\\s\\S]?)`,
+    'm'
+  );
+
+  return withChannelLock(path, async () => {
+    const text = await readFile(path, 'utf8');
+    const blockMatch = text.match(blockRe);
+    if (!blockMatch) throw new Error(`Message ${msgId} not found`);
+    const block = blockMatch[1];
+    const parsed = parseMessage(block.replace(/^\n/, ''));
+    if (!parsed) throw new Error(`Cannot parse message ${msgId}`);
+    parsed.archived = true;
+    parsed.archivedBy = archivedBy;
+    parsed.archivedReason = reason ?? null;
+    parsed.fromAlias = parsed.fromAlias ?? parsed.fromSessionId;
+    parsed.fromTool = parsed.fromTool ?? 'operator';
+    parsed.timestamp = parsed.timestamp ?? now();
+    parsed.git = parsed.git ?? { branch: null, hash: null, userName: null, userEmail: null };
+    const rebuilt = `\n${formatMessage(parsed)}`;
+    const updated = text.replace(block, rebuilt);
+    const tmpPath = `${path}.tmp.archive-${msgId}`;
+    await writeFile(tmpPath, updated, 'utf8');
+    INTERNAL_WRITE_FLAG.set(path, Date.now());
+    await rename(tmpPath, path);
+  });
+}
+
+/**
  * Returns canonical paths for a walkie-talkie project.
  * @param {string} projectRoot
  */
