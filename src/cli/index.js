@@ -10,6 +10,9 @@ import { statusCommand } from './status.js';
 import { talkCommand } from './talk.js';
 import { readCommand } from './read.js';
 import { tailCommand } from './tail.js';
+import { replyCommand } from './reply.js';
+import { editCommand } from './edit.js';
+import { archiveCommand } from './archive.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -46,11 +49,25 @@ program
   .action(readCommand);
 program.command('tail').description('Stream the live event feed').action(tailCommand);
 
+program
+  .command('reply <id> <message...>')
+  .description('Reply to a specific message')
+  .option('--as <alias>', 'Override operator alias')
+  .action((id, parts, opts) => replyCommand(id, parts, opts));
+
+program
+  .command('edit <id> <newBody...>')
+  .description('Edit a message you authored')
+  .action((id, parts) => editCommand(id, parts));
+
+program
+  .command('archive <id>')
+  .description('Archive a message')
+  .option('--reason <reason>', 'Why')
+  .action(archiveCommand);
+
 // Placeholder subcommands — replaced in tasks 29-33 with real implementations.
 const placeholders = [
-  ['reply', 'Reply to a specific message'],
-  ['edit', 'Edit a message you authored'],
-  ['archive', 'Archive a message'],
   ['sessions', 'List active and recent sessions plus invitations'],
   ['rename', 'Rename this session'],
   ['alias', 'Rename a specific session by id'],
