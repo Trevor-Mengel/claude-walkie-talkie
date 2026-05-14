@@ -8,6 +8,8 @@ import { startCommand } from './start.js';
 import { stopCommand } from './stop.js';
 import { statusCommand } from './status.js';
 import { talkCommand } from './talk.js';
+import { readCommand } from './read.js';
+import { tailCommand } from './tail.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -34,10 +36,18 @@ program
   .option('--no-invite', 'Do not interactively offer to invite unresolved @mentions')
   .action((parts, opts) => talkCommand(parts.join(' '), opts));
 
+program
+  .command('read')
+  .description('Read recent messages')
+  .option('--limit <N>', 'How many', '5')
+  .option('--since <ulid>', 'Show messages after this ID')
+  .option('--include-archived', 'Include archived messages', false)
+  .option('--type <T>', 'Filter by message type')
+  .action(readCommand);
+program.command('tail').description('Stream the live event feed').action(tailCommand);
+
 // Placeholder subcommands — replaced in tasks 29-33 with real implementations.
 const placeholders = [
-  ['read', 'Read recent messages'],
-  ['tail', 'Stream the live event feed'],
   ['reply', 'Reply to a specific message'],
   ['edit', 'Edit a message you authored'],
   ['archive', 'Archive a message'],
