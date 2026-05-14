@@ -1,10 +1,7 @@
 import express from 'express';
 import { createEvents } from './events.js';
+import { channelRoutes } from './routes/channel.js';
 
-/**
- * @param {{ wtDir: string }} opts
- * @returns {{ app: import('express').Express, events: import('node:events').EventEmitter }}
- */
 export function createServer({ wtDir }) {
   const app = express();
   const events = createEvents();
@@ -16,7 +13,11 @@ export function createServer({ wtDir }) {
     res.json({ ok: true, wtDir });
   });
 
-  // Additional routes mounted in later tasks.
+  app.use(channelRoutes());
+
+  app.use((err, _req, res, _next) => {
+    res.status(500).json({ error: err.message });
+  });
 
   return { app, events };
 }
