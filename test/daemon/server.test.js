@@ -109,3 +109,38 @@ describe('channel routes', () => {
     expect(res.body.messages[0].body.trim()).toBe('b');
   });
 });
+
+describe('sessions routes', () => {
+  test('GET /sessions returns active, recent, invitations', async () => {
+    project = createTmpProject();
+    const { app } = createServer({ wtDir: project.wtDir });
+    const res = await request(app).get('/sessions');
+    expect(res.status).toBe(200);
+    expect(res.body.active).toEqual([]);
+    expect(res.body.recent).toEqual([]);
+    expect(res.body.invitations).toEqual([]);
+  });
+
+  test('POST /sessions/join creates a session with generated alias', async () => {
+    project = createTmpProject();
+    const { app } = createServer({ wtDir: project.wtDir });
+    const res = await request(app).post('/sessions/join').send({ tool: 'claude-code' });
+    expect(res.status).toBe(200);
+    expect(res.body.alias).toBe('claude-code-1');
+  });
+
+  test('POST /sessions/:id/rename renames + fulfills matching invitation', async () => {
+    project = createTmpProject();
+    const { app } = createServer({ wtDir: project.wtDir });
+    const join = await request(app).post('/sessions/join').send({ tool: 'codex' });
+    await request(app).post('/sessions/invite').send({ alias: 'codex-helper' });
+    const renamed = await request(app)
+      .post(`/sessions/${join.body.sessionId}/rename`)
+      .send({ alias: 'codex-helper' });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.alias).toBe('codex-helper');
+    expect(renamed.body.fulfilled).toBe(true);
+    const after = await request(app).get('/sessions');
+    expect(after.body.invitations).toEqual([]);
+  });
+});
