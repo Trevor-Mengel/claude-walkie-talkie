@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { initCommand } from './init.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -13,9 +14,16 @@ program
   .description('Two-way radio for Claude Code and Claude Cowork sessions')
   .version(pkg.version);
 
-// Placeholder subcommands — replaced in tasks 26-33 with real implementations.
+program
+  .command('init')
+  .description('Initialize .walkie-talkie/ in the current directory')
+  .requiredOption('--operator <name>', 'Operator (human) display name')
+  .option('--name <projectName>', 'Project name (defaults to directory name)')
+  .option('--force', 'Overwrite an existing .walkie-talkie/')
+  .action(initCommand);
+
+// Placeholder subcommands — replaced in tasks 27-33 with real implementations.
 const placeholders = [
-  ['init', 'Initialize .walkie-talkie/ in the current directory'],
   ['start', 'Start the local daemon'],
   ['stop', 'Stop the local daemon'],
   ['status', 'Show daemon and channel status'],
