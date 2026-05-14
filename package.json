@@ -17,7 +17,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src test bin",
+    "lint": "eslint --no-error-on-unmatched-pattern src test bin",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\" \"bin/**/*.js\""
   },
   "dependencies": {
