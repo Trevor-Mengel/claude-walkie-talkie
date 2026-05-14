@@ -13,6 +13,10 @@ import { tailCommand } from './tail.js';
 import { replyCommand } from './reply.js';
 import { editCommand } from './edit.js';
 import { archiveCommand } from './archive.js';
+import { sessionsCommand } from './sessions.js';
+import { renameCommand } from './rename.js';
+import { aliasCommand } from './alias.js';
+import { inviteCommand } from './invite.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -66,12 +70,13 @@ program
   .option('--reason <reason>', 'Why')
   .action(archiveCommand);
 
+program.command('sessions').description('List active and recent sessions plus invitations').action(sessionsCommand);
+program.command('rename <alias>').description('Rename this session').action(renameCommand);
+program.command('alias <sessionId> <newAlias>').description('Rename a specific session by id').action(aliasCommand);
+program.command('invite <alias>').description('Reserve an alias for a future session').action(inviteCommand);
+
 // Placeholder subcommands — replaced in tasks 29-33 with real implementations.
 const placeholders = [
-  ['sessions', 'List active and recent sessions plus invitations'],
-  ['rename', 'Rename this session'],
-  ['alias', 'Rename a specific session by id'],
-  ['invite', 'Reserve an alias for a future session'],
   ['permit', 'Grant autonomous-write permission to a session'],
   ['remove', 'Remove autonomous-write permission from a session'],
   ['config', 'View or edit channel config'],
