@@ -2,6 +2,7 @@ import express from 'express';
 import { createEvents } from './events.js';
 import { channelRoutes } from './routes/channel.js';
 import { sessionsRoutes } from './routes/sessions.js';
+import { permitsRoutes } from './routes/permits.js';
 
 export function createServer({ wtDir }) {
   const app = express();
@@ -16,6 +17,7 @@ export function createServer({ wtDir }) {
 
   app.use(channelRoutes());
   app.use(sessionsRoutes());
+  app.use(permitsRoutes());
 
   app.use((err, _req, res, _next) => {
     res.status(500).json({ error: err.message });

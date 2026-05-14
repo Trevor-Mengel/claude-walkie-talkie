@@ -11,6 +11,7 @@ import { readHistory } from '../../core/history.js';
 import { now } from '../../core/time.js';
 import { parseMentions, resolveMentions } from '../../core/mentions.js';
 import { loadSessions } from '../../registry/sessions.js';
+import { checkAndConsume } from '../permits.js';
 
 function channelPath(wtDir) {
   return join(wtDir, 'channel.md');
@@ -70,6 +71,18 @@ export function channelRoutes() {
       const { body, type = 'broadcast', fromSessionId, fromAlias, fromTool, replyTo, autonomous } = req.body;
       if (!body || !fromSessionId) {
         return res.status(400).json({ error: 'body and fromSessionId are required' });
+      }
+      if (autonomous && fromSessionId !== 'operator') {
+        const check = await checkAndConsume(wtDir, fromSessionId);
+        if (!check.allowed) {
+          req.app.locals.events.emit('permit.required', { session_id: fromSessionId });
+          return res.status(403).json({
+            status: 'permit_required',
+            session_id: fromSessionId,
+            reason: check.reason,
+            hint: `Operator: run \`walkie permit ${fromSessionId} --once\` (or --duration X / --always) to allow this write.`
+          });
+        }
       }
       const tokens = parseMentions(body);
       const { active } = await loadSessions(wtDir);
