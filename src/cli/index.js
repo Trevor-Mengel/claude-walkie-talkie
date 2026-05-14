@@ -7,6 +7,7 @@ import { initCommand } from './init.js';
 import { startCommand } from './start.js';
 import { stopCommand } from './stop.js';
 import { statusCommand } from './status.js';
+import { talkCommand } from './talk.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -25,9 +26,16 @@ program
   .option('--force', 'Overwrite an existing .walkie-talkie/')
   .action(initCommand);
 
-// Placeholder subcommands — replaced in tasks 27-33 with real implementations.
+program
+  .command('talk <message...>')
+  .description('Broadcast a message (use @mentions to direct attention)')
+  .option('--type <type>', 'Message type: broadcast|question|reply|memory-update', 'broadcast')
+  .option('--as <alias>', 'Override the operator alias for this message')
+  .option('--no-invite', 'Do not interactively offer to invite unresolved @mentions')
+  .action((parts, opts) => talkCommand(parts.join(' '), opts));
+
+// Placeholder subcommands — replaced in tasks 29-33 with real implementations.
 const placeholders = [
-  ['talk', 'Broadcast a message (use @mentions to direct attention)'],
   ['read', 'Read recent messages'],
   ['tail', 'Stream the live event feed'],
   ['reply', 'Reply to a specific message'],
