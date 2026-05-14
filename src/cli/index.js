@@ -19,6 +19,8 @@ import { aliasCommand } from './alias.js';
 import { inviteCommand } from './invite.js';
 import { permitCommand } from './permit.js';
 import { removeCommand } from './remove.js';
+import { configCommand } from './config.js';
+import { logsCommand } from './logs.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf8'));
@@ -90,17 +92,17 @@ program
   .description('Remove autonomous-write permission')
   .action(removeCommand);
 
-// Placeholder subcommands — replaced in tasks 29-33 with real implementations.
-const placeholders = [
-  ['config', 'View or edit channel config'],
-  ['logs', 'View activity logs']
-];
-for (const [name, desc] of placeholders) {
-  program.command(name).description(desc).action(() => {
-    console.error(`walkie ${name}: not implemented yet`);
-    process.exit(2);
-  });
-}
+program
+  .command('config')
+  .description('View or edit channel config')
+  .option('--set <key=value>', 'Set a config value')
+  .action(configCommand);
+
+program
+  .command('logs')
+  .description('View activity logs')
+  .option('--tail <N>', 'Show only the last N lines')
+  .action(logsCommand);
 
 program.command('start').description('Start the local daemon').action(startCommand);
 program.command('stop').description('Stop the local daemon').action(stopCommand);
