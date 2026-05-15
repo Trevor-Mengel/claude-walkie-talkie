@@ -15,6 +15,8 @@ function renderRecipients(mentions) {
 
 function renderMarker(msg) {
   const parts = [`id=${msg.id}`, `type=${msg.type}`, `from=${msg.fromSessionId}`];
+  if (msg.fromTool) parts.push(`from-tool=${msg.fromTool}`);
+  if (msg.timestamp) parts.push(`timestamp=${msg.timestamp}`);
   if (msg.mentions?.length) parts.push(`mentions=${msg.mentions.join(',')}`);
   if (msg.mentionsPending?.length) parts.push(`mentions-pending=${msg.mentionsPending.join(',')}`);
   if (msg.replyTo) parts.push(`reply-to=${msg.replyTo}`);
@@ -92,6 +94,12 @@ function parseMarker(line) {
         break;
       case 'from':
         out.fromSessionId = val;
+        break;
+      case 'from-tool':
+        out.fromTool = val;
+        break;
+      case 'timestamp':
+        out.timestamp = val;
         break;
       case 'mentions':
         out.mentions = val.split(',');
