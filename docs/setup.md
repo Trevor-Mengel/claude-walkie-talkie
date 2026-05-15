@@ -21,10 +21,19 @@ npx claude-walkie-talkie walkie init --operator "Your Name"
 
 ## Install the plugin into Claude Code
 
-```sh
-# from inside Claude Code, on the Plugins page, install:
-#   claude-walkie-talkie
-# (or, if installing from a local clone:)
+From inside Claude Code:
+
+```
+/plugin marketplace add trevormengel/claude-walkie-talkie
+/plugin install walkie-talkie@claude-walkie-talkie
+/reload-plugins
+```
+
+The marketplace name (`claude-walkie-talkie`) is the second part of the install command's `@<marketplace>` suffix; the plugin name (`walkie-talkie`) is the first. Both come from `.claude-plugin/marketplace.json` in this repo.
+
+For local development without a marketplace round-trip:
+
+```
 /plugin add /path/to/claude-walkie-talkie
 ```
 

@@ -12,11 +12,24 @@ When you're building a demo in Code while planning a presentation in Cowork (or 
 
 ## Install
 
+The CLI:
+
 ```sh
 npm install -g claude-walkie-talkie
 ```
 
-Inside Code or Cowork, install the plugin via the plugin marketplace (or copy this repo to your plugin directory). The plugin auto-discovers in both environments — same install, both surfaces.
+The plugin (inside Claude Code or Cowork — adds the marketplace and installs in two slash commands):
+
+```
+/plugin marketplace add trevormengel/claude-walkie-talkie
+/plugin install walkie-talkie@claude-walkie-talkie
+```
+
+Then `/reload-plugins`. The plugin auto-discovers in both environments — same install, both surfaces.
+
+> **Trust note:** this plugin ships an MCP server and command hooks. Both run in your environment with your privileges. Review the source under `src/mcp-server/` and `hooks/` before installing if you don't already trust the author.
+
+For local development without a marketplace round-trip, see [Development](#development) below.
 
 ## Quick start
 

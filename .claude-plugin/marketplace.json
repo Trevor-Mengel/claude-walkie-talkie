@@ -1,0 +1,20 @@
+{
+  "name": "claude-walkie-talkie",
+  "owner": {
+    "name": "Trevor Mengel",
+    "email": "trevor@cloutdesk.com"
+  },
+  "description": "Two-way radio for Claude Code and Claude Cowork sessions working on the same project.",
+  "plugins": [
+    {
+      "name": "walkie-talkie",
+      "source": "./",
+      "description": "Asynchronous broadcast-style messaging between concurrent Claude Code and Cowork sessions. Includes SKILL.md, hooks, slash commands, and an MCP server.",
+      "homepage": "https://github.com/trevormengel/claude-walkie-talkie",
+      "repository": "https://github.com/trevormengel/claude-walkie-talkie",
+      "license": "MIT",
+      "keywords": ["mcp", "messaging", "cowork", "multi-agent", "skill"],
+      "category": "productivity"
+    }
+  ]
+}
