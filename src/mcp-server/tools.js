@@ -19,8 +19,16 @@ const SCHEMAS = {
     }
   },
   walkie_talk: {
-    description: 'Post a message. Use @mentions in the body to direct attention. Stub.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'Post a message on the channel. Agent posts are autonomous and require an operator permit. Use @<alias> mentions in the body to direct attention; @operator, @all, and @<tool> also work.',
+    inputSchema: {
+      type: 'object',
+      required: ['body'],
+      properties: {
+        body: { type: 'string' },
+        type: { type: 'string', enum: ['broadcast', 'question', 'reply', 'memory-update'], default: 'broadcast' },
+        reply_to: { type: 'string' }
+      }
+    }
   },
   walkie_reply: {
     description: 'Reply to a specific message. Stub.',
@@ -71,6 +79,31 @@ export function buildTools({ client, session } = {}) {
           const includeArchived = args.include_archived === true;
           const res = await client.latest(limit, includeArchived);
           return text(res);
+        }
+        case 'walkie_talk': {
+          if (!args.body) return error('body is required');
+          try {
+            const res = await client.post({
+              body: args.body,
+              type: args.type ?? 'broadcast',
+              replyTo: args.reply_to,
+              fromSessionId: session.sessionId,
+              fromAlias: session.alias,
+              fromTool: session.tool,
+              autonomous: true
+            });
+            return text(res);
+          } catch (e) {
+            if (e.status === 403 && e.body?.status === 'permit_required') {
+              return text({
+                status: 'permit_required',
+                session_id: e.body.session_id,
+                reason: e.body.reason,
+                hint: e.body.hint
+              });
+            }
+            throw e;
+          }
         }
         default:
           return error(`tool ${name} not implemented yet`);
