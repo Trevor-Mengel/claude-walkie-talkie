@@ -18,3 +18,12 @@ export async function spawnDaemon(wtDir) {
   child.kill();
   throw new Error('daemon never wrote PID/port files');
 }
+
+export async function stopDaemon(daemon) {
+  if (!daemon?.child || daemon.child.killed) return;
+  daemon.child.kill();
+  for (let i = 0; i < 20; i += 1) {
+    if (daemon.child.killed || daemon.child.exitCode !== null) return;
+    await new Promise((r) => setTimeout(r, 25));
+  }
+}
