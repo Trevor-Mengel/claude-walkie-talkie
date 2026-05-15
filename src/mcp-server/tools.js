@@ -64,12 +64,16 @@ const SCHEMAS = {
     }
   },
   walkie_sessions: {
-    description: 'List active sessions and pending invitations. Stub.',
+    description: 'List active sessions (so you know valid @mention targets) and pending invitations.',
     inputSchema: { type: 'object', properties: {} }
   },
   walkie_rename: {
-    description: "Change this session's alias. Stub.",
-    inputSchema: { type: 'object', properties: {} }
+    description: "Change THIS session's alias. If the new alias matches a pending invitation, the invitation is fulfilled.",
+    inputSchema: {
+      type: 'object',
+      required: ['alias'],
+      properties: { alias: { type: 'string' } }
+    }
   }
 };
 
@@ -154,6 +158,16 @@ export function buildTools({ client, session } = {}) {
         case 'walkie_archive': {
           if (!args.id) return error('id is required');
           const res = await client.archive(args.id, { archivedBy: session.sessionId, reason: args.reason ?? null });
+          return text(res);
+        }
+        case 'walkie_sessions': {
+          const res = await client.sessions();
+          return text(res);
+        }
+        case 'walkie_rename': {
+          if (!args.alias) return error('alias is required');
+          const res = await client.rename(session.sessionId, args.alias);
+          session.alias = args.alias;
           return text(res);
         }
         default:
