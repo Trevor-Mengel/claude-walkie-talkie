@@ -9,6 +9,7 @@ import { stopCommand } from './stop.js';
 import { statusCommand } from './status.js';
 import { talkCommand } from './talk.js';
 import { readCommand } from './read.js';
+import { inboxCommand } from './inbox.js';
 import { tailCommand } from './tail.js';
 import { replyCommand } from './reply.js';
 import { editCommand } from './edit.js';
@@ -55,6 +56,14 @@ program
   .option('--include-archived', 'Include archived messages', false)
   .option('--type <T>', 'Filter by message type')
   .action(readCommand);
+program
+  .command('inbox')
+  .description('Show the latest channel messages (hook-friendly)')
+  .option('--limit <N>', 'How many messages', '10')
+  .option('--since-last', 'Only show messages since last check (no-op for operator path)')
+  .option('--format <fmt>', 'output format: context|json', 'context')
+  .action(inboxCommand);
+
 program.command('tail').description('Stream the live event feed').action(tailCommand);
 
 program
