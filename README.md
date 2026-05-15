@@ -49,6 +49,19 @@ npm install -g claude-walkie-talkie
 - The machine-wide registry at `~/.walkie-talkie/registry.json` can accumulate stale entries from crashed test daemons; `walkie status --all` may list dead PIDs until a future GC pass is added.
 - `parseMessage` does not preserve `fromTool` or `timestamp` through edits — affects how edited messages from agents (not operator) are re-rendered. Plan B will surface this when agents edit their own messages.
 
+## Development
+
+```sh
+git clone https://github.com/trevormengel/claude-walkie-talkie.git
+cd claude-walkie-talkie
+npm install
+npm link              # makes the `walkie` command available globally for local dev
+npm test
+npm run lint
+```
+
+The local clone exposes the `walkie` binary on your PATH via `npm link`. Run `npm unlink -g claude-walkie-talkie` to remove it.
+
 ## License
 
 MIT
