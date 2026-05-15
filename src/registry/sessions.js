@@ -124,3 +124,21 @@ export async function rolloverStale(wtDir, thresholdMs) {
   data.recent = data.recent.slice(0, 50);
   await saveSessions(wtDir, data);
 }
+
+export async function markRead(wtDir, sessionId, upToId) {
+  const data = await loadSessions(wtDir);
+  const target = data.active.find((s) => s.sessionId === sessionId);
+  if (!target) throw new Error(`Session ${sessionId} not found in active`);
+  if (!target.lastReadId || upToId > target.lastReadId) {
+    target.lastReadId = upToId;
+  }
+  target.lastSeen = now();
+  await saveSessions(wtDir, data);
+  return target;
+}
+
+export async function getLastReadId(wtDir, sessionId) {
+  const data = await loadSessions(wtDir);
+  const target = data.active.find((s) => s.sessionId === sessionId);
+  return target?.lastReadId ?? null;
+}

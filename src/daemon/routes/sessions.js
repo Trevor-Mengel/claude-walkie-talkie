@@ -76,5 +76,33 @@ export function sessionsRoutes() {
     }
   });
 
+  router.get('/sessions/:id/inbox', async (req, res, next) => {
+    try {
+      const wtDir = req.app.locals.wtDir;
+      const includeMemory = req.query.include_memory_updates === 'true';
+      const { readChannel } = await import('../../core/channel.js');
+      const { loadSessions, markRead, getLastReadId } = await import('../../registry/sessions.js');
+      const sessions = await loadSessions(wtDir);
+      const session = sessions.active.find((s) => s.sessionId === req.params.id);
+      if (!session) return res.status(404).json({ error: 'session not found' });
+      const since = await getLastReadId(wtDir, req.params.id);
+      const { messages } = await readChannel(`${wtDir}/channel.md`);
+      const candidates = messages.filter((m) => !m.archived && (since === null || m.id > since));
+      const visible = includeMemory ? candidates : candidates.filter((m) => m.type !== 'memory-update');
+      const mentionedForMe = visible.filter((m) =>
+        (m.mentions ?? []).includes(session.alias) ||
+        (m.mentions ?? []).includes(session.tool) ||
+        (m.mentions ?? []).includes('all')
+      );
+      if (visible.length > 0) {
+        const latest = visible.reduce((max, m) => (m.id > max ? m.id : max), since ?? '');
+        await markRead(wtDir, req.params.id, latest);
+      }
+      res.json({ messages: visible, mentionedForMe });
+    } catch (e) {
+      next(e);
+    }
+  });
+
   return router;
 }
