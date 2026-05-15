@@ -1,6 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { ResourceUpdatedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createTmpProject, cleanup } from '../helpers/tmp-project.js';
 import { spawnDaemon, stopDaemon } from '../helpers/spawn-daemon.js';
 import { clientForProject } from '../../src/cli/client.js';
@@ -53,6 +54,20 @@ describe('walkie:// resources', () => {
     const r = await client.readResource({ uri: 'walkie://sessions/active' });
     const payload = JSON.parse(r.contents[0].text);
     expect(payload.active.length).toBeGreaterThanOrEqual(1);
+    await close();
+  });
+
+  test('subscribe emits resources/updated when a new message is posted', async () => {
+    const http = clientForProject(project.root);
+    const { client, close } = await startMcp(project.root);
+    let updated = null;
+    client.setNotificationHandler(ResourceUpdatedNotificationSchema, (n) => { updated = n.params; });
+    await client.subscribeResource({ uri: 'walkie://channel/inbox' });
+
+    await http.post({ body: 'live', fromSessionId: 'operator', fromAlias: 'operator', fromTool: 'operator' });
+
+    await new Promise((r) => setTimeout(r, 250));
+    expect(updated?.uri).toBe('walkie://channel/inbox');
     await close();
   });
 });

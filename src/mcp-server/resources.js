@@ -1,3 +1,28 @@
+async function streamEvents(client, onEvent) {
+  const res = await fetch(`${client.base}/events`, { headers: { accept: 'text/event-stream' } });
+  if (!res.ok || !res.body) throw new Error(`event stream failed: ${res.status}`);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  (async () => {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) return;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) !== -1) {
+        const chunk = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        if (chunk.startsWith(':')) continue;
+        const event = /^event: (.+)$/m.exec(chunk)?.[1];
+        const data = /^data: (.+)$/m.exec(chunk)?.[1];
+        if (event && data) onEvent(event, JSON.parse(data));
+      }
+    }
+  })().catch((err) => process.stderr.write(`[walkie-talkie-mcp] event stream closed: ${err.message}\n`));
+  return reader;
+}
+
 const RESOURCES = [
   {
     uri: 'walkie://channel/inbox',
@@ -27,31 +52,47 @@ function jsonResource(uri, data) {
   };
 }
 
-export function buildResources({ server: _server, client, session } = {}) {
+export function buildResources({ server, client, session } = {}) {
+  const subscriptions = new Set();
+  let reader = null;
+
+  async function ensureStream() {
+    if (reader) return;
+    reader = await streamEvents(client, (event, payload) => {
+      if (event !== 'message.posted') return;
+      if (payload.from === session.sessionId) return; // don't notify about own posts
+      for (const uri of subscriptions) {
+        server.notification({ method: 'notifications/resources/updated', params: { uri } });
+      }
+    });
+  }
+
   function list() { return RESOURCES; }
 
   async function read(request) {
     const { uri } = request.params;
     switch (uri) {
-      case 'walkie://channel/inbox': {
-        const data = await client.inbox(session.sessionId);
-        return jsonResource(uri, data);
-      }
-      case 'walkie://channel/recent': {
-        const data = await client.latest(20, false);
-        return jsonResource(uri, data);
-      }
-      case 'walkie://sessions/active': {
-        const data = await client.sessions();
-        return jsonResource(uri, data);
-      }
+      case 'walkie://channel/inbox':
+        return jsonResource(uri, await client.inbox(session.sessionId));
+      case 'walkie://channel/recent':
+        return jsonResource(uri, await client.latest(20, false));
+      case 'walkie://sessions/active':
+        return jsonResource(uri, await client.sessions());
       default:
         throw new Error(`unknown resource: ${uri}`);
     }
   }
 
-  async function subscribe(_request) { return {}; }
-  async function unsubscribe(_request) { return {}; }
+  async function subscribe(request) {
+    subscriptions.add(request.params.uri);
+    await ensureStream();
+    return {};
+  }
+
+  async function unsubscribe(request) {
+    subscriptions.delete(request.params.uri);
+    return {};
+  }
 
   return { list, read, subscribe, unsubscribe };
 }
