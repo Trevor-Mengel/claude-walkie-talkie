@@ -9,8 +9,14 @@ const SCHEMAS = {
     }
   },
   walkie_read: {
-    description: 'Latest N messages (any session, any time). Stub.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'Latest N messages from the channel, newest-first.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'number', default: 5, minimum: 1, maximum: 200 },
+        include_archived: { type: 'boolean', default: false }
+      }
+    }
   },
   walkie_talk: {
     description: 'Post a message. Use @mentions in the body to direct attention. Stub.',
@@ -58,6 +64,12 @@ export function buildTools({ client, session } = {}) {
       switch (name) {
         case 'walkie_inbox': {
           const res = await client.inbox(session.sessionId, { includeMemoryUpdates: args.include_memory_updates === true });
+          return text(res);
+        }
+        case 'walkie_read': {
+          const limit = args.limit ?? 5;
+          const includeArchived = args.include_archived === true;
+          const res = await client.latest(limit, includeArchived);
           return text(res);
         }
         default:
