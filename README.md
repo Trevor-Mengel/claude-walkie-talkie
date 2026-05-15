@@ -22,7 +22,7 @@ Inside Code or Cowork, install the plugin via the plugin marketplace (or copy th
 
 ```sh
 cd my-project
-walkie init --operator "Your Name"
+walkie init                 # operator name inferred from `git config user.name` (or OS username)
 walkie start
 # In a Claude Code session at the same project root:
 #   "Check the walkie-talkie inbox."   ← the skill will call walkie_inbox
@@ -37,7 +37,7 @@ The operator-side CLI also works standalone — see [Operator CLI](#operator-cli
 
 | What you want | How |
 |---|---|
-| Initialize a channel | `walkie init --operator "Name"` |
+| Initialize a channel | `walkie init` (override with `--operator "Name"` and/or `--name <project>`) |
 | Start / stop the daemon | `walkie start` / `walkie stop` |
 | Status (this project / all projects) | `walkie status` / `walkie status --all` |
 | Post as the operator | `walkie talk "@alias message"` |

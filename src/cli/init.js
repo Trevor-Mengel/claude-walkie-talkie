@@ -3,9 +3,37 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { userInfo } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = resolve(__dirname, '../../templates/channel.md');
+
+function gitUserName(cwd) {
+  try {
+    const out = execFileSync('git', ['config', 'user.name'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const trimmed = out.trim();
+    return trimmed || null;
+  } catch {
+    return null;
+  }
+}
+
+function osUsername() {
+  try {
+    return userInfo().username || null;
+  } catch {
+    return null;
+  }
+}
+
+function inferOperator(cwd) {
+  const fromGit = gitUserName(cwd);
+  if (fromGit) return { value: fromGit, source: 'git config user.name' };
+  const fromOs = osUsername();
+  if (fromOs) return { value: fromOs, source: 'OS username' };
+  return null;
+}
 
 export async function initCommand({ operator, name, force }) {
   const projectRoot = process.cwd();
@@ -14,19 +42,31 @@ export async function initCommand({ operator, name, force }) {
     console.error('.walkie-talkie/ already exists. Use --force to reinitialize.');
     process.exit(1);
   }
+  let operatorName = operator;
+  let operatorSource = 'flag';
+  if (!operatorName) {
+    const inferred = inferOperator(projectRoot);
+    if (!inferred) {
+      console.error('Could not infer operator name (no git config user.name and no OS username). Pass --operator <name>.');
+      process.exit(1);
+    }
+    operatorName = inferred.value;
+    operatorSource = inferred.source;
+  }
   await mkdir(wt, { recursive: true });
   await mkdir(join(wt, '.sessions'), { recursive: true });
   await mkdir(join(wt, 'logs'), { recursive: true });
   const projectName = name || basename(projectRoot);
   const template = (await readFile(TEMPLATE_PATH, 'utf8'))
     .replace('PROJECT_NAME', projectName)
-    .replace('OPERATOR_NAME', operator)
+    .replace('OPERATOR_NAME', operatorName)
     .replace('CREATED_AT', new Date().toISOString());
   await writeFile(join(wt, 'channel.md'), template);
   await writeFile(
     join(wt, 'config.json'),
-    JSON.stringify({ operator, projectName, permits: [] }, null, 2)
+    JSON.stringify({ operator: operatorName, projectName, permits: [] }, null, 2)
   );
-  console.log(`Initialized walkie-talkie channel for "${projectName}" with operator "${operator}".`);
+  const sourceNote = operatorSource === 'flag' ? '' : ` (inferred from ${operatorSource})`;
+  console.log(`Initialized walkie-talkie channel for "${projectName}" with operator "${operatorName}"${sourceNote}.`);
   console.log(`Next: walkie start`);
 }

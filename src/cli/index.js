@@ -35,7 +35,7 @@ program
 program
   .command('init')
   .description('Initialize .walkie-talkie/ in the current directory')
-  .requiredOption('--operator <name>', 'Operator (human) display name')
+  .option('--operator <name>', 'Operator display name (defaults to git config user.name, then OS username)')
   .option('--name <projectName>', 'Project name (defaults to directory name)')
   .option('--force', 'Overwrite an existing .walkie-talkie/')
   .action(initCommand);
