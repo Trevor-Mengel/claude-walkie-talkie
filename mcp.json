@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "walkie-talkie": {
+      "command": "npx",
+      "args": ["-y", "claude-walkie-talkie", "walkie-talkie-mcp"],
+      "env": {
+        "WALKIE_TOOL": "claude-code"
+      }
+    }
+  }
+}

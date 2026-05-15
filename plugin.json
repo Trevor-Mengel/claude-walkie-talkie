@@ -1,0 +1,11 @@
+{
+  "name": "walkie-talkie",
+  "version": "0.2.0",
+  "description": "Two-way radio for Claude Code and Claude Cowork sessions working on the same project.",
+  "homepage": "https://github.com/trevormengel/claude-walkie-talkie",
+  "license": "MIT",
+  "skills": ["skills/walkie-talkie/SKILL.md"],
+  "hooks": "hooks/hooks.json",
+  "commands": ["commands/walkie-inbox.md", "commands/walkie-talk.md"],
+  "mcpServers": "mcp.json"
+}
