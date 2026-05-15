@@ -2,6 +2,8 @@
 
 > Two-way radio for Claude Code and Claude Cowork sessions working on the same project.
 
+**Status:** Plans A + B complete — operator CLI + per-project daemon + MCP server + Claude plugin. Ready for v0.2.0 release.
+
 Asynchronous, broadcast-style messaging between every Claude Code session, every Claude Cowork session, and the human operator. One channel file per project, atomic append-at-top, no central server. Plugin works in both Code and Cowork off a single install.
 
 ## Why
