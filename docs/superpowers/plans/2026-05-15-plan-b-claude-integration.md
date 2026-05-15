@@ -56,8 +56,6 @@ test/helpers/mock-mcp-client.js
 test/helpers/spawn-mcp.js
 test/e2e/two-clients.test.js
 
-test/core/format-roundtrip.test.js      # Marker round-trip regression
-test/registry/machine-gc.test.js        # Dead-PID GC for machine registry
 test/daemon/inbox-route.test.js         # Per-session inbox route
 test/cli/inbox.test.js                  # `walkie inbox` CLI
 ```
@@ -65,9 +63,6 @@ test/cli/inbox.test.js                  # `walkie inbox` CLI
 ### Files modified
 
 ```
-eslint.config.js                        # Declare modern Node globals
-src/core/format.js                      # Round-trip from-tool= and timestamp= through marker
-src/daemon/registry-machine.js          # GC dead PIDs on register / list / deregister
 src/registry/sessions.js                # Add lastReadId per session; markRead()
 src/daemon/routes/sessions.js           # New GET /sessions/:id/inbox route
 src/cli/index.js                        # Register `walkie inbox` command
@@ -84,426 +79,7 @@ README.md                               # Full rewrite per spec §25
 
 ---
 
-## Task 0: Pre-flight cleanup
-
-**Files:**
-- Modify: `eslint.config.js`
-- Modify: `README.md` (add Development section near the bottom)
-
-- [ ] **Step 1: Reproduce the lint failure to capture the baseline**
-
-Run: `npm run lint`
-Expected: 16 errors, 8 warnings. Errors are all `'fetch' is not defined`, `'setTimeout' is not defined`, `'setInterval' is not defined`, `'clearInterval' is not defined`, `'TextDecoder' is not defined`.
-
-- [ ] **Step 2: Declare modern Node globals in eslint config**
-
-Modify `eslint.config.js` so the top globals block includes the runtime globals Node ≥18 provides. Final file:
-
-```js
-export default [
-  {
-    languageOptions: {
-      ecmaVersion: 2023,
-      sourceType: 'module',
-      globals: {
-        console: 'readonly',
-        process: 'readonly',
-        Buffer: 'readonly',
-        URL: 'readonly',
-        fetch: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        TextDecoder: 'readonly',
-        TextEncoder: 'readonly',
-        AbortController: 'readonly'
-      }
-    },
-    rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      'no-undef': 'error',
-      'prefer-const': 'warn',
-      'no-var': 'error',
-      eqeqeq: ['error', 'always']
-    }
-  },
-  {
-    files: ['test/**/*.js'],
-    languageOptions: {
-      globals: {
-        describe: 'readonly',
-        test: 'readonly',
-        expect: 'readonly',
-        beforeEach: 'readonly',
-        afterEach: 'readonly',
-        beforeAll: 'readonly',
-        afterAll: 'readonly'
-      }
-    }
-  }
-];
-```
-
-- [ ] **Step 3: Verify lint is clean**
-
-Run: `npm run lint`
-Expected: zero errors (warnings about unused `_e` may remain — they are intentional `argsIgnorePattern` matches and are fine).
-
-- [ ] **Step 4: Add a Development section to README.md**
-
-Append to `README.md` just above the `## License` heading:
-
-```markdown
-## Development
-
-```sh
-git clone https://github.com/trevormengel/claude-walkie-talkie.git
-cd claude-walkie-talkie
-npm install
-npm link              # makes the `walkie` command available globally for local dev
-npm test
-npm run lint
-```
-
-The local clone exposes the `walkie` binary on your PATH via `npm link`. Run `npm unlink -g claude-walkie-talkie` to remove it.
-```
-
-- [ ] **Step 5: Run the full test suite to make sure nothing regressed**
-
-Run: `npm test`
-Expected: 79/79 tests pass (no new tests yet).
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add eslint.config.js README.md
-git commit -m "chore: declare Node runtime globals in eslint config; document npm link for dev"
-```
-
----
-
-## Task 1: Round-trip `from-tool` and `timestamp` through marker (walkie-core fix)
-
-**Background:** Plan A's `parseMessage` does not preserve `fromTool` or `timestamp`. When the MCP server lets a non-operator session edit or archive its own message, the rebuilt block falls back to `now()` and `'operator'` — wrong author identity and wrong original time. Fix in walkie-core by extending the marker schema (add `from-tool=X` and `timestamp=...`) and updating the parser.
-
-**Files:**
-- Modify: `src/core/format.js`
-- Create: `test/core/format-roundtrip.test.js`
-
-- [ ] **Step 1: Write the failing round-trip test**
-
-Create `test/core/format-roundtrip.test.js`:
-
-```js
-import { describe, test, expect } from 'vitest';
-import { formatMessage, parseMessage } from '../../src/core/format.js';
-
-describe('format/parse round-trip', () => {
-  test('preserves fromTool through format → parse', () => {
-    const original = {
-      id: '01J7QXP9R5K8VYZAB3',
-      type: 'broadcast',
-      fromSessionId: 'cs_abc123',
-      fromAlias: 'demo-builder',
-      fromTool: 'claude-code',
-      mentions: [],
-      timestamp: '2026-05-15T10:00:00.000Z',
-      git: { branch: null, hash: null, userName: null, userEmail: null },
-      body: 'hello'
-    };
-    const block = formatMessage(original);
-    const parsed = parseMessage(block.replace(/^\n/, ''));
-    expect(parsed.fromTool).toBe('claude-code');
-  });
-
-  test('preserves timestamp through format → parse', () => {
-    const original = {
-      id: '01J7QXP9R5K8VYZAB4',
-      type: 'broadcast',
-      fromSessionId: 'cs_abc123',
-      fromAlias: 'demo-builder',
-      fromTool: 'claude-code',
-      mentions: [],
-      timestamp: '2026-05-15T10:00:00.000Z',
-      git: { branch: null, hash: null, userName: null, userEmail: null },
-      body: 'hello'
-    };
-    const block = formatMessage(original);
-    const parsed = parseMessage(block.replace(/^\n/, ''));
-    expect(parsed.timestamp).toBe('2026-05-15T10:00:00.000Z');
-  });
-
-  test('operator tool also round-trips (regression for default rebuild)', () => {
-    const original = {
-      id: '01J7QXP9R5K8VYZAB5',
-      type: 'broadcast',
-      fromSessionId: 'operator',
-      fromAlias: 'operator',
-      fromTool: 'operator',
-      mentions: [],
-      timestamp: '2026-05-15T10:00:00.000Z',
-      git: { branch: null, hash: null, userName: null, userEmail: null },
-      body: 'hi'
-    };
-    const parsed = parseMessage(formatMessage(original).replace(/^\n/, ''));
-    expect(parsed.fromTool).toBe('operator');
-    expect(parsed.timestamp).toBe('2026-05-15T10:00:00.000Z');
-  });
-});
-```
-
-- [ ] **Step 2: Run the new test and verify it fails**
-
-Run: `npx vitest run test/core/format-roundtrip.test.js`
-Expected: three FAILs — `expected undefined to be 'claude-code'` (and similar for timestamp).
-
-- [ ] **Step 3: Extend the marker writer to include `from-tool` and `timestamp`**
-
-In `src/core/format.js`, modify `renderMarker` to emit the two new fields. Insert after the existing `from=` line:
-
-```js
-function renderMarker(msg) {
-  const parts = [`id=${msg.id}`, `type=${msg.type}`, `from=${msg.fromSessionId}`];
-  if (msg.fromTool) parts.push(`from-tool=${msg.fromTool}`);
-  if (msg.timestamp) parts.push(`timestamp=${msg.timestamp}`);
-  if (msg.mentions?.length) parts.push(`mentions=${msg.mentions.join(',')}`);
-  if (msg.mentionsPending?.length) parts.push(`mentions-pending=${msg.mentionsPending.join(',')}`);
-  if (msg.replyTo) parts.push(`reply-to=${msg.replyTo}`);
-  if (msg.revision) parts.push(`revision=${msg.revision}`);
-  if (msg.editedAt) parts.push(`edited-at=${msg.editedAt}`);
-  if (msg.archived) parts.push('archived=true');
-  if (msg.archivedBy) parts.push(`archived-by=${msg.archivedBy}`);
-  if (msg.archivedReason) parts.push(`archived-reason="${msg.archivedReason}"`);
-  if (msg.autonomous) parts.push('[autonomous]');
-  return `<!-- walkie:msg ${parts.join(' ')} -->`;
-}
-```
-
-- [ ] **Step 4: Extend the marker parser to read `from-tool` and `timestamp`**
-
-In `src/core/format.js`, modify `parseMarker` to handle the two new tokens. Add cases inside the `switch` block, before the `default:`:
-
-```js
-      case 'from-tool':
-        out.fromTool = val;
-        break;
-      case 'timestamp':
-        out.timestamp = val;
-        break;
-```
-
-- [ ] **Step 5: Run the round-trip test — verify it passes**
-
-Run: `npx vitest run test/core/format-roundtrip.test.js`
-Expected: 3 PASS.
-
-- [ ] **Step 6: Run the full test suite to make sure nothing regressed**
-
-Run: `npm test`
-Expected: all tests pass. The existing `test/core/format.test.js` continues to pass — the new fields are additive.
-
-- [ ] **Step 7: Verify editMessage and archiveMessage now preserve identity**
-
-Create `/tmp/walkie-roundtrip-check.mjs`:
-
-```js
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { appendMessage, editMessage, archiveMessage } from '/Users/trev/Projects/development/claude-walkie-talkie/src/core/channel.js';
-
-const root = mkdtempSync(join(tmpdir(), 'walkie-rt-'));
-const channelPath = join(root, 'channel.md');
-writeFileSync(channelPath, '# Channel\n\n<!-- WALKIE:HEADER_END -->\n\n---\n\n');
-
-const id = await appendMessage(channelPath, {
-  type: 'broadcast',
-  fromSessionId: 'cs_abc123',
-  fromAlias: 'demo-builder',
-  fromTool: 'claude-code',
-  timestamp: '2026-05-15T10:00:00.000Z',
-  mentions: [],
-  git: { branch: null, hash: null, userName: null, userEmail: null },
-  body: 'original'
-});
-
-await editMessage(channelPath, id, 'edited body', 'cs_abc123');
-await archiveMessage(channelPath, id, 'cs_abc123', 'cleanup');
-
-const text = readFileSync(channelPath, 'utf8');
-const ok = text.includes('from-tool=claude-code') && text.includes('timestamp=2026-05-15T10:00:00.000Z');
-console.log(ok ? 'ROUND-TRIP OK' : 'ROUND-TRIP FAIL');
-console.log(text);
-```
-
-Run: `node /tmp/walkie-roundtrip-check.mjs`
-Expected: `ROUND-TRIP OK` and the channel block containing both `from-tool=claude-code` and `timestamp=2026-05-15T10:00:00.000Z` in the rebuilt marker.
-
-- [ ] **Step 8: Commit**
-
-```bash
-git add src/core/format.js test/core/format-roundtrip.test.js
-git commit -m "fix(core): round-trip from-tool and timestamp through marker so edit/archive preserve identity"
-```
-
----
-
-## Task 2: GC dead PIDs in the machine-wide registry
-
-**Background:** `~/.walkie-talkie/registry.json` accumulates entries from crashed daemons (e.g., test runs that exit hard). `walkie status --all` then prints dead processes. Fix by GC-ing dead PIDs whenever the registry is touched.
-
-**Files:**
-- Modify: `src/daemon/registry-machine.js`
-- Create: `test/registry/machine-gc.test.js`
-
-- [ ] **Step 1: Write the failing test**
-
-Create `test/registry/machine-gc.test.js`:
-
-```js
-import { describe, test, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
-async function withFakeHome(fn) {
-  const fakeHome = mkdtempSync(join(tmpdir(), 'walkie-home-'));
-  const origHome = process.env.HOME;
-  process.env.HOME = fakeHome;
-  try {
-    return await fn(fakeHome);
-  } finally {
-    process.env.HOME = origHome;
-    rmSync(fakeHome, { recursive: true, force: true });
-  }
-}
-
-describe('machine registry GC', () => {
-  test('listProjects prunes entries whose PID is dead', async () => {
-    await withFakeHome(async () => {
-      const { listProjects, registerProject } = await import(`../../src/daemon/registry-machine.js?gc1=${Date.now()}`);
-      await registerProject({ projectPath: '/tmp/p1', port: 1234, pid: process.pid, projectName: 'alive' });
-      await registerProject({ projectPath: '/tmp/p2', port: 1235, pid: 999999, projectName: 'dead' });
-      const projects = await listProjects();
-      const names = projects.map((p) => p.projectName).sort();
-      expect(names).toEqual(['alive']);
-    });
-  });
-
-  test('deregisterProject removes the named project and prunes dead siblings', async () => {
-    await withFakeHome(async () => {
-      const { listProjects, registerProject, deregisterProject } = await import(`../../src/daemon/registry-machine.js?gc2=${Date.now()}`);
-      await registerProject({ projectPath: '/tmp/p1', port: 1234, pid: process.pid, projectName: 'alive' });
-      await registerProject({ projectPath: '/tmp/p2', port: 1235, pid: 999999, projectName: 'dead' });
-      await registerProject({ projectPath: '/tmp/p3', port: 1236, pid: process.pid, projectName: 'also-alive' });
-      await deregisterProject('/tmp/p3');
-      const projects = await listProjects();
-      const names = projects.map((p) => p.projectName).sort();
-      expect(names).toEqual(['alive']);
-    });
-  });
-});
-```
-
-Note the `?gc1=...` query suffix on the import: forces a fresh module instance per test so `homedir()` resolves against the patched `HOME`.
-
-- [ ] **Step 2: Verify the test fails**
-
-Run: `npx vitest run test/registry/machine-gc.test.js`
-Expected: FAIL — both tests see the dead entry (`pid: 999999`) still in the listing.
-
-- [ ] **Step 3: Add a `pidAlive` helper and apply GC at every read point**
-
-Rewrite `src/daemon/registry-machine.js`:
-
-```js
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { homedir } from 'node:os';
-
-function registryPath() {
-  return join(homedir(), '.walkie-talkie', 'registry.json');
-}
-
-function pidAlive(pid) {
-  if (!pid) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function prune(projects) {
-  return projects.filter((p) => pidAlive(p.pid));
-}
-
-async function loadRegistry() {
-  const p = registryPath();
-  if (!existsSync(p)) return { projects: [] };
-  try {
-    return JSON.parse(await readFile(p, 'utf8'));
-  } catch {
-    return { projects: [] };
-  }
-}
-
-async function saveRegistry(data) {
-  const p = registryPath();
-  await mkdir(join(homedir(), '.walkie-talkie'), { recursive: true });
-  await writeFile(p, JSON.stringify(data, null, 2));
-}
-
-export async function registerProject({ projectPath, port, pid, projectName }) {
-  const r = await loadRegistry();
-  const others = r.projects.filter((p) => p.projectPath !== projectPath);
-  const alive = prune(others);
-  alive.push({ projectPath, port, pid, projectName, startedAt: new Date().toISOString() });
-  r.projects = alive;
-  await saveRegistry(r);
-}
-
-export async function deregisterProject(projectPath) {
-  const r = await loadRegistry();
-  const remaining = r.projects.filter((p) => p.projectPath !== projectPath);
-  r.projects = prune(remaining);
-  await saveRegistry(r);
-}
-
-export async function listProjects() {
-  const r = await loadRegistry();
-  const alive = prune(r.projects);
-  if (alive.length !== r.projects.length) {
-    r.projects = alive;
-    await saveRegistry(r);
-  }
-  return alive;
-}
-```
-
-- [ ] **Step 4: Verify the new test passes**
-
-Run: `npx vitest run test/registry/machine-gc.test.js`
-Expected: 2 PASS.
-
-- [ ] **Step 5: Verify the full suite is still green**
-
-Run: `npm test`
-Expected: 79 + 3 + 2 = 84 tests pass.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/daemon/registry-machine.js test/registry/machine-gc.test.js
-git commit -m "fix(registry): GC dead PIDs on register/list/deregister so status --all stays accurate"
-```
-
----
-
-## Task 3: Per-session `lastReadId` + daemon inbox route
+## Task 0: Per-session `lastReadId` + daemon inbox route
 
 **Background:** `walkie_inbox` needs to return messages "new since this session last read" — and update the marker on success. Store `lastReadId` directly on the session record; expose `GET /sessions/:id/inbox` that returns + marks atomically.
 
@@ -686,7 +262,7 @@ git commit -m "feat(daemon): per-session lastReadId + GET /sessions/:id/inbox wi
 
 ---
 
-## Task 4: Add MCP SDK dependency and entry script
+## Task 1: Add MCP SDK dependency and entry script
 
 **Files:**
 - Modify: `package.json`
@@ -747,7 +323,7 @@ git commit -m "feat(mcp): add @modelcontextprotocol/sdk dep and walkie-talkie-mc
 
 ---
 
-## Task 5: MCP server scaffold
+## Task 2: MCP server scaffold
 
 **Background:** Set up the MCP `Server` instance, register `ListTools` with the 8 stub names, and wire stdio transport. This is the minimal "the host can talk to us" surface. No real logic yet.
 
@@ -1002,7 +578,7 @@ git commit -m "feat(mcp): server scaffold with 8 stub tools + stdio transport"
 
 ---
 
-## Task 6: Project-root discovery and daemon auto-start
+## Task 3: Project-root discovery and daemon auto-start
 
 **Background:** The MCP server is launched by the host (Code/Cowork) and needs to find the project root and ensure the daemon is running. Per spec §15, skills auto-start the daemon on first call.
 
@@ -1107,7 +683,7 @@ git commit -m "feat(mcp): project-root discovery + daemon auto-start helper"
 
 ---
 
-## Task 7: Per-MCP-process session resolution
+## Task 4: Per-MCP-process session resolution
 
 **Background:** Each MCP server process represents one host session. On startup, call `/sessions/join` once and cache the result (sessionId, alias, tool). Tools read this cached identity.
 
@@ -1200,7 +776,7 @@ git commit -m "feat(mcp): per-process session cache; join on first tool call"
 
 ---
 
-## Task 8: `walkie_inbox` tool
+## Task 5: `walkie_inbox` tool
 
 **Background:** First real tool. Refactor `tools.js` so `buildTools` accepts injected `client` + `session` and dispatches by name. From here on each task adds one tool.
 
@@ -1415,7 +991,7 @@ git commit -m "feat(mcp): walkie_inbox tool returns new-since-last-read with mar
 
 ---
 
-## Task 9: `walkie_read` tool
+## Task 6: `walkie_read` tool
 
 **Files:**
 - Modify: `src/mcp-server/tools.js`
@@ -1530,7 +1106,7 @@ git commit -m "feat(mcp): walkie_read tool returns latest N with include_archive
 
 ---
 
-## Task 10: `walkie_talk` tool (with permit-required surface)
+## Task 7: `walkie_talk` tool (with permit-required surface)
 
 **Background:** Every agent-initiated talk is autonomous, so the daemon's permit gate fires. The MCP tool must report `permit_required` clearly to the model — and pass through `unresolved-mention` warnings.
 
@@ -1697,7 +1273,7 @@ git commit -m "feat(mcp): walkie_talk tool with autonomous flag, permit handling
 
 ---
 
-## Task 11: `walkie_reply`, `walkie_edit`, `walkie_archive`
+## Task 8: `walkie_reply`, `walkie_edit`, `walkie_archive`
 
 **Background:** Three small tools that all proxy daemon endpoints. Bundle into one task because each is ~5 lines and they share a test file.
 
@@ -1879,7 +1455,7 @@ git commit -m "feat(mcp): walkie_reply, walkie_edit, walkie_archive tools"
 
 ---
 
-## Task 12: `walkie_sessions` and `walkie_rename`
+## Task 9: `walkie_sessions` and `walkie_rename`
 
 **Files:**
 - Modify: `src/mcp-server/tools.js`
@@ -1996,7 +1572,7 @@ git commit -m "feat(mcp): walkie_sessions and walkie_rename tools (rename update
 
 ---
 
-## Task 13: Resources (`walkie://channel/recent`, `walkie://sessions/active`)
+## Task 10: Resources (`walkie://channel/recent`, `walkie://sessions/active`)
 
 **Background:** Non-subscribable resources first. These give the host a way to display channel state without invoking a tool every refresh.
 
@@ -2152,7 +1728,7 @@ git commit -m "feat(mcp): walkie:// resources for inbox, recent, and sessions"
 
 ---
 
-## Task 14: Resource subscription for `walkie://channel/inbox`
+## Task 11: Resource subscription for `walkie://channel/inbox`
 
 **Background:** When the host subscribes, push `notifications/resources/updated` whenever a `message.posted` event fires on the daemon SSE stream. Hosts that don't support subscription silently ignore. Hosts that do (anything compliant with MCP) auto-refresh the inbox panel.
 
@@ -2299,7 +1875,7 @@ git commit -m "feat(mcp): walkie://channel/inbox subscription forwards SSE messa
 
 ---
 
-## Task 15: `walkie inbox` CLI command (consumed by hooks)
+## Task 12: `walkie inbox` CLI command (consumed by hooks)
 
 **Background:** The hook script (next task) needs a way to render the inbox as plain text suitable for injection into agent context. The operator CLI is the right home. Adds `walkie inbox --since-last --format=context|json`.
 
@@ -2412,7 +1988,7 @@ git commit -m "feat(cli): walkie inbox command (json|context format) for hook in
 
 ---
 
-## Task 16: SKILL.md (scenario-driven, both environments)
+## Task 13: SKILL.md (scenario-driven, both environments)
 
 **Background:** Per spec §17, this is the LLM-facing surface. Scenario-driven, not command-driven. Each scenario gives 1–2 example operator phrasings.
 
@@ -2520,9 +2096,9 @@ git commit -m "feat(plugin): scenario-driven SKILL.md for natural-language invoc
 
 ---
 
-## Task 17: Hooks (`hooks.json` + `check-inbox.sh`)
+## Task 14: Hooks (`hooks.json` + `check-inbox.sh`)
 
-**Background:** SessionStart + UserPromptSubmit command hooks. Fires today in Code; inert in Cowork until anthropics/claude-code#27398. Document forward-compatibility honestly in the README (Task 20).
+**Background:** SessionStart + UserPromptSubmit command hooks. Fires today in Code; inert in Cowork until anthropics/claude-code#27398. Document forward-compatibility honestly in the README (Task 17).
 
 **Files:**
 - Create: `hooks/hooks.json`
@@ -2617,7 +2193,7 @@ git commit -m "feat(plugin): SessionStart + UserPromptSubmit hooks (forward-comp
 
 ---
 
-## Task 18: Slash commands
+## Task 15: Slash commands
 
 **Background:** Explicit `/walkie-inbox` and `/walkie-talk "..."` for operators who want determinism.
 
@@ -2663,7 +2239,7 @@ git commit -m "feat(plugin): /walkie-inbox and /walkie-talk slash commands"
 
 ---
 
-## Task 19: `plugin.json` + `mcp.json`
+## Task 16: `plugin.json` + `mcp.json`
 
 **Background:** The two manifest files that tie everything together. Code and Cowork load `plugin.json`, which references `mcp.json`, `hooks/hooks.json`, `commands/`, and `skills/`.
 
@@ -2703,7 +2279,7 @@ git commit -m "feat(plugin): /walkie-inbox and /walkie-talk slash commands"
 }
 ```
 
-Note: Cowork users will need to override `WALKIE_TOOL=claude-cowork` per their MCP configuration. Documented in `docs/setup.md` (Task 22).
+Note: Cowork users will need to override `WALKIE_TOOL=claude-cowork` per their MCP configuration. Documented in `docs/setup.md` (Task 19).
 
 - [ ] **Step 3: Validate JSON syntactically**
 
@@ -2719,7 +2295,7 @@ git commit -m "feat(plugin): plugin.json and mcp.json manifests"
 
 ---
 
-## Task 20: README rewrite (full spec §25)
+## Task 17: README rewrite (full spec §25)
 
 **Files:**
 - Modify: `README.md`
@@ -2851,7 +2427,7 @@ git commit -m "docs: full README rewrite with quickstart, usage table, architect
 
 ---
 
-## Task 21: docs/architecture.md (mermaid diagram + three surfaces)
+## Task 18: docs/architecture.md (mermaid diagram + three surfaces)
 
 **Files:**
 - Create: `docs/architecture.md`
@@ -2951,7 +2527,7 @@ git commit -m "docs: architecture overview with mermaid flow + sequence diagrams
 
 ---
 
-## Task 22: docs/setup.md (install into Code and Cowork)
+## Task 19: docs/setup.md (install into Code and Cowork)
 
 **Files:**
 - Create: `docs/setup.md`
@@ -3059,7 +2635,7 @@ git commit -m "docs: install + plugin setup for Code and Cowork (with Cowork-hoo
 
 ---
 
-## Task 23: docs/api.md (HTTP + MCP reference)
+## Task 20: docs/api.md (HTTP + MCP reference)
 
 **Files:**
 - Create: `docs/api.md`
@@ -3167,7 +2743,7 @@ git commit -m "docs: HTTP + MCP API reference with marker schema"
 
 ---
 
-## Task 24: docs/faq.md
+## Task 21: docs/faq.md
 
 **Files:**
 - Create: `docs/faq.md`
@@ -3235,7 +2811,7 @@ git commit -m "docs: FAQ"
 
 ---
 
-## Task 25: examples/demo-while-presenting/
+## Task 22: examples/demo-while-presenting/
 
 **Files:**
 - Create: `examples/demo-while-presenting/README.md`
@@ -3349,7 +2925,7 @@ git commit -m "docs: demo-while-presenting example with annotated transcript"
 
 ---
 
-## Task 26: CONTRIBUTING.md
+## Task 23: CONTRIBUTING.md
 
 **Files:**
 - Create: `CONTRIBUTING.md`
@@ -3425,7 +3001,7 @@ git commit -m "docs: CONTRIBUTING.md with design philosophy and PR guardrails"
 
 ---
 
-## Task 27: E2E harness — mock MCP client helper
+## Task 24: E2E harness — mock MCP client helper
 
 **Files:**
 - Create: `test/helpers/mock-mcp-client.js`
@@ -3491,7 +3067,7 @@ git commit -m "test: mock MCP client helper for E2E harness"
 
 ---
 
-## Task 28: E2E harness — full conversation walkthrough
+## Task 25: E2E harness — full conversation walkthrough
 
 **Background:** Spec §24 layer 3. One test that walks `join → talk → @mention → reply → edit → archive → invite → fulfill` end-to-end with two mock MCP clients plus the operator CLI client.
 
@@ -3602,7 +3178,7 @@ git commit -m "test(e2e): two-client walkthrough — join, talk, mention, reply,
 
 ---
 
-## Task 29: Final smoke + plan-b-complete tag
+## Task 26: Final smoke + plan-b-complete tag
 
 **Files:**
 - Modify: `README.md` (status line only)
@@ -3651,7 +3227,7 @@ Expected: JSON-RPC responses listing all 8 walkie_* tool names. (The exact proto
 
 - [ ] **Step 4: Update the README "Status" line**
 
-In `README.md`, the project has no explicit "Status:" line in the rewritten version (Task 20 removed it). Add one back as the second line of the file, just under the tagline:
+In `README.md`, the project has no explicit "Status:" line in the rewritten version (Task 17 removed it). Add one back as the second line of the file, just under the tagline:
 
 ```markdown
 **Status:** Plans A + B complete — operator CLI + per-project daemon + MCP server + Claude plugin. Ready for v0.2.0 release.
@@ -3679,26 +3255,26 @@ Expected: `plan-b-complete` tag points at the README-status commit. Five most re
 
 This plan has been reviewed against the kickoff prompt and the design spec:
 
-- **Spec coverage:** §16 (MCP server tools + resources) ✓ — Tasks 5–14 cover all 8 tools and 3 resources including subscription. §17.1 (single skill, both envs) ✓ — Task 16. §17.2-17.3 (NL invocation + scenario-driven authoring) ✓ — Task 16 SKILL.md body. §17.4 (hooks SessionStart + UserPromptSubmit, forward-compatible with Cowork) ✓ — Tasks 15, 17. §17.5 (slash commands) ✓ — Task 18. §18 (notification latency — completes the Code-hook half) ✓ — README + setup docs frame it honestly. §20 (memory-update integration in SKILL.md) ✓ — Task 16 has a dedicated section and inbox already excludes by default (Task 3). §24 layer 3 (E2E harness) ✓ — Tasks 27–28 cover spawn-daemon + two mock MCP clients + operator CLI walking the full conversation. §25 (docs deliverables) ✓ — README (Task 20), architecture (Task 21), setup (Task 22), api (Task 23), faq (Task 24), examples/demo-while-presenting (Task 25), CONTRIBUTING (Task 26).
+- **Spec coverage:** §16 (MCP server tools + resources) ✓ — Tasks 2–11 cover all 8 tools and 3 resources including subscription. §17.1 (single skill, both envs) ✓ — Task 13. §17.2-17.3 (NL invocation + scenario-driven authoring) ✓ — Task 13 SKILL.md body. §17.4 (hooks SessionStart + UserPromptSubmit, forward-compatible with Cowork) ✓ — Tasks 12, 14. §17.5 (slash commands) ✓ — Task 15. §18 (notification latency — completes the Code-hook half) ✓ — README + setup docs frame it honestly. §20 (memory-update integration in SKILL.md) ✓ — Task 13 has a dedicated section and inbox already excludes by default (Task 0). §24 layer 3 (E2E harness) ✓ — Tasks 24–25 cover spawn-daemon + two mock MCP clients + operator CLI walking the full conversation. §25 (docs deliverables) ✓ — README (Task 17), architecture (Task 18), setup (Task 19), api (Task 20), faq (Task 21), examples/demo-while-presenting (Task 22), CONTRIBUTING (Task 23).
 
-- **Known Plan-A follow-ups closed:** marker `from-tool` + `timestamp` round-trip (Task 1), machine-registry GC of dead PIDs (Task 2). Lint config gap (Task 0) and lack of npm-link guidance (Task 0) also closed.
+- **Plan A finalization completed before Plan B execution started:** three discrete commits closed the marker round-trip (`bc238e6`), machine-registry GC (`61745fe`), and eslint config gap (`c33cb39`). Tagged as `plan-a-final`. Plan B begins from a known-clean baseline (84/84 tests, 0 lint errors).
 
 - **Constraints from kickoff prompt:**
-  - "Walkie-core is the only writer to channel.md" ✓ — MCP server never imports `src/core/channel.js`; it routes all writes through daemon HTTP (Tasks 5, 10–14). Explicit in the File Structure section.
-  - "Cowork hooks forward-compatible; document honestly" ✓ — Task 17 ships hooks unconditionally; Tasks 20, 22 reference #27398 by URL and explain the practical impact.
-  - "Natural language primary in agents, SKILL.md scenario-driven" ✓ — Task 16 is built around scenarios with operator-phrasing examples.
-  - "One plugin, both environments" ✓ — Tasks 16, 19 (single `plugin.json`, single `mcp.json`, single SKILL.md).
-  - "All MCP tools call into the daemon HTTP API, never write directly" ✓ — explicit in the File Structure and in every MCP tool implementation in Tasks 8–12.
+  - "Walkie-core is the only writer to channel.md" ✓ — MCP server never imports `src/core/channel.js`; it routes all writes through daemon HTTP (Tasks 2, 7–11). Explicit in the File Structure section.
+  - "Cowork hooks forward-compatible; document honestly" ✓ — Task 14 ships hooks unconditionally; Tasks 17, 19 reference #27398 by URL and explain the practical impact.
+  - "Natural language primary in agents, SKILL.md scenario-driven" ✓ — Task 13 is built around scenarios with operator-phrasing examples.
+  - "One plugin, both environments" ✓ — Tasks 13, 16 (single `plugin.json`, single `mcp.json`, single SKILL.md).
+  - "All MCP tools call into the daemon HTTP API, never write directly" ✓ — explicit in the File Structure and in every MCP tool implementation in Tasks 5–9.
 
 - **Placeholder scan:** every step has concrete code or commands. Two minor exceptions worth flagging:
-  - Task 14 step 4 documents a fallback if `setNotificationHandler` schema validation fails — this is a real version-dependent adjustment, not a placeholder.
-  - Task 28 step 2 says the invitation-fulfilment assertion may need tuning to match `findInvitation`/`fulfillInvitation`'s actual return shape. This is real codebase-dependent inspection, not a TBD.
+  - Task 11 step 4 documents a fallback if `setNotificationHandler` schema validation fails — this is a real version-dependent adjustment, not a placeholder.
+  - Task 25 step 2 says the invitation-fulfilment assertion may need tuning to match `findInvitation`/`fulfillInvitation`'s actual return shape. This is real codebase-dependent inspection, not a TBD.
 
 - **Type / signature consistency:**
-  - `client.inbox(sessionId, opts)` shape matches between `http-client.js` (Task 5) and the tool handler (Task 8), the resource handler (Tasks 13–14), and the daemon route (Task 3).
-  - `walkie_talk` always sets `autonomous: true` from the MCP path (Tasks 10, 11); operator CLI never does. Permit gate fires only on autonomous writes — verified by the existing `src/daemon/routes/channel.js`.
-  - `markRead(wtDir, sessionId, upToId)` signature (Task 3) is consumed by the inbox route's local code in the same task.
-  - `findProjectRoot({ env, cwd })` signature (Task 6) matches its single caller in `src/mcp-server/index.js` (Task 8 update to main()).
+  - `client.inbox(sessionId, opts)` shape matches between `http-client.js` (Task 2) and the tool handler (Task 5), the resource handler (Tasks 10–11), and the daemon route (Task 0).
+  - `walkie_talk` always sets `autonomous: true` from the MCP path (Tasks 7, 8); operator CLI never does. Permit gate fires only on autonomous writes — verified by the existing `src/daemon/routes/channel.js`.
+  - `markRead(wtDir, sessionId, upToId)` signature (Task 0) is consumed by the inbox route's local code in the same task.
+  - `findProjectRoot({ env, cwd })` signature (Task 3) matches its single caller in `src/mcp-server/index.js` (Task 5 update to main()).
 
 - **Out of scope (intentional):** Cowork-side smoke test (cannot run without Cowork installed). Hosted relay (spec §26). Multiple channels (spec §26). LLM-driven NL CLI (spec §26). All explicitly deferred.
 
