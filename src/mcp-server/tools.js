@@ -31,16 +31,37 @@ const SCHEMAS = {
     }
   },
   walkie_reply: {
-    description: 'Reply to a specific message. Stub.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'Reply to a specific message. Convenience wrapper around walkie_talk that prefills reply_to and type="reply".',
+    inputSchema: {
+      type: 'object',
+      required: ['reply_to', 'body'],
+      properties: {
+        reply_to: { type: 'string' },
+        body: { type: 'string' }
+      }
+    }
   },
   walkie_edit: {
-    description: 'Edit a message you authored. Stub.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'Edit a message you authored. Bumps the revision and preserves the prior body in history.',
+    inputSchema: {
+      type: 'object',
+      required: ['id', 'body'],
+      properties: {
+        id: { type: 'string' },
+        body: { type: 'string' }
+      }
+    }
   },
   walkie_archive: {
-    description: 'Archive a message. Stub.',
-    inputSchema: { type: 'object', properties: {} }
+    description: 'Archive a message so it is hidden from default reads. Archives are never deleted.',
+    inputSchema: {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string' },
+        reason: { type: 'string' }
+      }
+    }
   },
   walkie_sessions: {
     description: 'List active sessions and pending invitations. Stub.',
@@ -104,6 +125,36 @@ export function buildTools({ client, session } = {}) {
             }
             throw e;
           }
+        }
+        case 'walkie_reply': {
+          if (!args.reply_to || !args.body) return error('reply_to and body are required');
+          try {
+            const res = await client.post({
+              body: args.body,
+              type: 'reply',
+              replyTo: args.reply_to,
+              fromSessionId: session.sessionId,
+              fromAlias: session.alias,
+              fromTool: session.tool,
+              autonomous: true
+            });
+            return text(res);
+          } catch (e) {
+            if (e.status === 403 && e.body?.status === 'permit_required') {
+              return text({ status: 'permit_required', ...e.body });
+            }
+            throw e;
+          }
+        }
+        case 'walkie_edit': {
+          if (!args.id || !args.body) return error('id and body are required');
+          const res = await client.edit(args.id, { body: args.body, editedBy: session.sessionId });
+          return text(res);
+        }
+        case 'walkie_archive': {
+          if (!args.id) return error('id is required');
+          const res = await client.archive(args.id, { archivedBy: session.sessionId, reason: args.reason ?? null });
+          return text(res);
         }
         default:
           return error(`tool ${name} not implemented yet`);
