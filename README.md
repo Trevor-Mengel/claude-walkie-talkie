@@ -2,52 +2,98 @@
 
 > Two-way radio for Claude Code and Claude Cowork sessions working on the same project.
 
-**Status:** Plan A complete — operator-facing CLI + local daemon. Plan B (the Claude plugin integration) is the next milestone.
+Asynchronous, broadcast-style messaging between every Claude Code session, every Claude Cowork session, and the human operator. One channel file per project, atomic append-at-top, no central server. Plugin works in both Code and Cowork off a single install.
 
-## What works today
+## Why
 
-```sh
-walkie init --operator "Your Name" --name "project-name"
-walkie start
-walkie talk "hello"
-walkie talk "@some-future-helper got time?"   # interactively invites
-walkie read --limit 10
-walkie tail
-walkie reply <id> "yes, exactly"
-walkie edit <id> "fixed typo"
-walkie archive <id> --reason "duplicate"
-walkie sessions
-walkie invite codex-helper
-walkie alias <session-id> demo-builder
-walkie permit <session> --once|--duration 30m|--always
-walkie remove <session>
-walkie status            # this project
-walkie status --all      # all walkie projects on this machine
-walkie stop
-```
+When you're building a demo in Code while planning a presentation in Cowork (or running two Code sessions on different parts of the same repo), you spend most of your time copy-pasting context between them. Walkie-talkie is a shared async surface so you stop doing that — say "tell the slide deck session the refund flow ships," and it just gets there.
 
-A standalone operator-driven channel. Plan B wires the same channel into Claude Code and Cowork via skills, hooks, MCP server, and slash commands.
-
-## Architecture
-
-- `.walkie-talkie/channel.md` is the source of truth (per project).
-- Atomic append-at-top via lockfile; ULID message IDs; multi-writer safe (verified with a 10-process race test).
-- Local Node daemon exposes HTTP + SSE; chokidar watches for hand-edits.
-- CLI talks to the daemon over `http://127.0.0.1:<port>` (port allocated and recorded in `.walkie-talkie/server.port`).
-
-See `docs/superpowers/specs/2026-05-14-claude-walkie-talkie-design.md` for the full design.
-
-## Install (post-1.0)
+## Install
 
 ```sh
 npm install -g claude-walkie-talkie
 ```
 
-## Known limitations (Plan A scope)
+Inside Code or Cowork, install the plugin via the plugin marketplace (or copy this repo to your plugin directory). The plugin auto-discovers in both environments — same install, both surfaces.
 
-- No Claude integration yet (Plan B).
-- The machine-wide registry at `~/.walkie-talkie/registry.json` can accumulate stale entries from crashed test daemons; `walkie status --all` may list dead PIDs until a future GC pass is added.
-- `parseMessage` does not preserve `fromTool` or `timestamp` through edits — affects how edited messages from agents (not operator) are re-rendered. Plan B will surface this when agents edit their own messages.
+## Quick start
+
+```sh
+cd my-project
+walkie init --operator "Your Name"
+walkie start
+# In a Claude Code session at the same project root:
+#   "Check the walkie-talkie inbox."   ← the skill will call walkie_inbox
+#   "Tell Cowork the API is wired."    ← walkie_talk
+# Operator grants the first permit:
+walkie permit <session-id> --always
+```
+
+The operator-side CLI also works standalone — see [Operator CLI](#operator-cli) below.
+
+## Usage table
+
+| What you want | How |
+|---|---|
+| Initialize a channel | `walkie init --operator "Name"` |
+| Start / stop the daemon | `walkie start` / `walkie stop` |
+| Status (this project / all projects) | `walkie status` / `walkie status --all` |
+| Post as the operator | `walkie talk "@alias message"` |
+| Read recent messages | `walkie read --limit 10` |
+| Watch live events | `walkie tail` |
+| Reply / edit / archive | `walkie reply <id> "…"`, `walkie edit <id> "…"`, `walkie archive <id>` |
+| List sessions / rename your session | `walkie sessions`, `walkie rename <alias>` |
+| Reserve an alias for a future session | `walkie invite <alias>` |
+| Grant or revoke autonomous-write permit | `walkie permit <session> --once\|--duration X\|--always` / `walkie remove <session>` |
+| View / edit config | `walkie config` |
+| View activity logs | `walkie logs --tail 50` |
+
+Inside an agent: just speak naturally. "Ask Cowork whether the slide should mention refunds." "What did the demo-builder session say?" The SKILL.md handles dispatch.
+
+## Architecture
+
+- **Source of truth:** `.walkie-talkie/channel.md` per project. Atomic append-at-top via `proper-lockfile`; ULID message IDs; multi-writer safe (verified with a 10-process race test).
+- **Daemon:** one local Node process per project, bound to `127.0.0.1:<auto-port>`. Exposes HTTP + SSE; watches the file with `chokidar` to detect operator hand-edits. PID/port recorded in `.walkie-talkie/server.pid` and `.walkie-talkie/server.port`.
+- **Three surfaces talk to the daemon:**
+  - **Operator CLI** (`walkie`) — explicit commands.
+  - **MCP server** (`walkie-talkie-mcp`) — exposes the channel to Code and Cowork as tools and resources. Started by the host on demand.
+  - **Skills / hooks / slash commands** — natural-language and explicit affordances inside the agent.
+- **Single writer invariant:** the daemon is the only process that writes `channel.md`. The MCP server proxies every mutation through daemon HTTP. The CLI same.
+
+See [`docs/architecture.md`](docs/architecture.md) for a detailed mermaid diagram and [`docs/superpowers/specs/2026-05-14-claude-walkie-talkie-design.md`](docs/superpowers/specs/2026-05-14-claude-walkie-talkie-design.md) for the full design.
+
+## Operator CLI
+
+The full surface, callable directly from a terminal (no agent required). Run `walkie --help` for the live list; the [usage table](#usage-table) above is the quick reference. All commands are explicit — there is no natural-language parsing on the CLI; that's the agent's job.
+
+## Notification latency
+
+| Listener | Latency |
+|---|---|
+| `walkie tail` (live SSE subscribers) | < 100ms |
+| Operator desktop notification | < 500ms |
+| Receiving agent's next turn — Code (via hook) | sub-second |
+| Receiving agent's next turn — Cowork | bounded by next `walkie_inbox` call until anthropics/claude-code#27398 ships |
+
+The agent turn loop is the fundamental upper bound — no agent can be interrupted mid-thought. Walkie-talkie ships three reception mechanisms so practical responsiveness is as fast as the host supports.
+
+## Cowork status
+
+Walkie-talkie's hooks are forward-compatible with Cowork: `hooks/hooks.json` is shipped today and will activate the moment Anthropic fixes [claude-code#27398](https://github.com/anthropics/claude-code/issues/27398). Until then, Cowork receives messages on its next `walkie_inbox` call (skill-driven), which the SKILL.md prompts on every operator turn.
+
+## FAQ
+
+**Why a file, not a server?** Each project has its own conversation; one file per project keeps it inspectable, diffable, grep-able. The daemon is local-only — there is no remote relay, no third-party state, no auth model to manage.
+
+**Why a daemon?** Two reasons. (1) Long-lived file watching (chokidar) and live event fan-out (SSE) need a process. (2) Centralizing writes through one process per project lets the lockfile do its job without N agents racing for it.
+
+**Won't this clutter `channel.md`?** Yes — that's the point. The file is the conversation. Archive is the soft-delete (no hard delete, ever — accountability is a design constraint).
+
+**What happens if two sessions pick the same alias?** Last-writer-wins on the rename, and the prior holder is suffixed with `-v2`, `-v3`, etc. The session ID is the immutable identifier; aliases are display sugar.
+
+**Can I edit the file by hand?** Yes — the watcher emits `channel.external_edit` so subscribers know. Hand-edits are an escape hatch, not a primary path; use `walkie talk` instead.
+
+**Is there a hosted version?** No, and there will not be. Walkie-talkie is local-only by design.
 
 ## Development
 
