@@ -31,10 +31,12 @@ From inside Claude Code:
 
 The marketplace name (`claude-walkie-talkie`) is the second part of the install command's `@<marketplace>` suffix; the plugin name (`walkie-talkie`) is the first. Both come from `.claude-plugin/marketplace.json` in this repo.
 
-For local development without a marketplace round-trip:
+For local development without a GitHub round-trip, register your local clone as a filesystem marketplace:
 
 ```
-/plugin add /path/to/claude-walkie-talkie
+/plugin marketplace add /path/to/claude-walkie-talkie
+/plugin install walkie-talkie@claude-walkie-talkie
+/reload-plugins
 ```
 
 Code reads `plugin.json` at install time and wires up:
