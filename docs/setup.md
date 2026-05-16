@@ -44,7 +44,7 @@ Code reads `plugin.json` at install time and wires up:
 - `skills/walkie-talkie/SKILL.md` — the LLM-facing scenarios
 - `hooks/hooks.json` — SessionStart + UserPromptSubmit hooks
 - `commands/walkie-inbox.md`, `commands/walkie-talk.md` — slash commands
-- `mcp.json` — launches the `walkie-talkie-mcp` server on demand
+- `.mcp.json` — launches the `walkie-talkie-mcp` server on demand
 
 After install, open a session in any project that has `.walkie-talkie/` and the SKILL.md activates automatically. Run `walkie permit <your-session> --always` once you want the agent to write without prompting each time.
 

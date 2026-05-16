@@ -56,7 +56,7 @@ src/mcp-server/   — stdio MCP server loaded by Code/Cowork; uses http-client.j
 skills/walkie-talkie/SKILL.md  — scenario-driven LLM prompt (Code + Cowork)
 hooks/            — SessionStart + UserPromptSubmit; forward-compatible with Cowork #27398
 commands/         — /walkie-inbox and /walkie-talk slash commands
-plugin.json + mcp.json — Anthropic plugin manifests
+plugin.json + .mcp.json — Anthropic plugin manifests
 ```
 
 The CLI talks to the daemon via `http://127.0.0.1:<port>` (port in `.walkie-talkie/server.port`). The MCP server does the same — it never imports `src/core/channel.js`. The plugin assets are declarative; the hook script shells out to `walkie inbox --format=context`.

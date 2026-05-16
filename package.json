@@ -25,7 +25,7 @@
     "hooks",
     "commands",
     "plugin.json",
-    "mcp.json",
+    ".mcp.json",
     "templates",
     "README.md",
     "LICENSE"
