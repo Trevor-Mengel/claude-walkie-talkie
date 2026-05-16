@@ -75,7 +75,7 @@ Inside an agent: just speak naturally. "Ask Cowork whether the slide should ment
   - **Skills / hooks / slash commands** — natural-language and explicit affordances inside the agent.
 - **Single writer invariant:** the daemon is the only process that writes `channel.md`. The MCP server proxies every mutation through daemon HTTP. The CLI same.
 
-See [`docs/architecture.md`](docs/architecture.md) for a detailed mermaid diagram and [`docs/superpowers/specs/2026-05-14-claude-walkie-talkie-design.md`](docs/superpowers/specs/2026-05-14-claude-walkie-talkie-design.md) for the full design.
+See [`docs/architecture.md`](docs/architecture.md) for a detailed mermaid diagram.
 
 ## Operator CLI
 

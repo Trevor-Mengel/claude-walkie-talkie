@@ -6,3 +6,6 @@ coverage/
 .walkie-talkie-test-*/
 .vscode/
 .idea/
+
+# Construction history / methodology docs — not for public consumption
+docs/superpowers/

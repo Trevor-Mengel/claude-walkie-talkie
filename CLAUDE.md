@@ -89,11 +89,12 @@ Agent posts must set `autonomous: true` on `POST /channel/message`. The daemon c
 
 ## Reference docs
 
-- **Full design spec:** `docs/superpowers/specs/2026-05-14-claude-walkie-talkie-design.md`
-- **Plan A (operator radio):** `docs/superpowers/plans/2026-05-14-plan-a-operator-radio.md`
-- **Plan B (Claude integration):** `docs/superpowers/plans/2026-05-15-plan-b-claude-integration.md`
 - **Architecture diagrams:** `docs/architecture.md` (mermaid)
 - **API reference:** `docs/api.md` (HTTP routes + MCP tools/resources + marker schema)
+- **Setup:** `docs/setup.md`
+- **FAQ:** `docs/faq.md`
+
+(The original design spec and Plan A/Plan B construction docs are kept locally under `docs/superpowers/` and are gitignored — they were the working artifacts during initial development. Ask the maintainer if you need historical context.)
 
 ## Tags
 
