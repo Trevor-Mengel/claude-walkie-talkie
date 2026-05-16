@@ -4,6 +4,7 @@ const ALLOWED_TOOLS = new Set(['claude-code', 'claude-cowork', 'operator']);
 const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const BODY_FORBIDDEN_PATTERNS = [/\n## /, /<!--\s*walkie:msg/i];
 const REASON_FORBIDDEN_PATTERNS = [/\n## /, /<!--\s*walkie:msg/i, /"/];
+const OPERATOR_NAME_RE = /^[\p{L}\p{N} ._'-]{1,80}$/u;
 
 export function isValidSessionId(value) {
   return typeof value === 'string' && SESSION_ID_RE.test(value);
@@ -47,4 +48,8 @@ export function isValidArchiveReason(value) {
   if (value === null || value === undefined) return true;
   if (typeof value !== 'string') return false;
   return !REASON_FORBIDDEN_PATTERNS.some((re) => re.test(value));
+}
+
+export function isValidOperatorName(value) {
+  return typeof value === 'string' && value.length > 0 && OPERATOR_NAME_RE.test(value);
 }

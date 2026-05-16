@@ -5,6 +5,7 @@ import { basename, join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { userInfo } from 'node:os';
+import { isValidOperatorName } from '../core/validate.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = resolve(__dirname, '../../templates/channel.md');
@@ -13,7 +14,12 @@ function gitUserName(cwd) {
   try {
     const out = execFileSync('git', ['config', 'user.name'], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     const trimmed = out.trim();
-    return trimmed || null;
+    if (!trimmed) return null;
+    if (!isValidOperatorName(trimmed)) {
+      console.error('(git config user.name is invalid; falling back)');
+      return null;
+    }
+    return trimmed;
   } catch {
     return null;
   }
@@ -21,7 +27,13 @@ function gitUserName(cwd) {
 
 function osUsername() {
   try {
-    return userInfo().username || null;
+    const name = userInfo().username;
+    if (!name) return null;
+    if (!isValidOperatorName(name)) {
+      console.error('(OS username is invalid; falling back)');
+      return null;
+    }
+    return name;
   } catch {
     return null;
   }
@@ -44,10 +56,15 @@ export async function initCommand({ operator, name, force }) {
   }
   let operatorName = operator;
   let operatorSource = 'flag';
-  if (!operatorName) {
+  if (operatorName) {
+    if (!isValidOperatorName(operatorName)) {
+      console.error("invalid --operator value: contains forbidden characters or exceeds 80 chars; please pass a name matching letters/numbers/spaces/._'-");
+      process.exit(1);
+    }
+  } else {
     const inferred = inferOperator(projectRoot);
     if (!inferred) {
-      console.error('Could not infer operator name (no git config user.name and no OS username). Pass --operator <name>.');
+      console.error('Could not infer operator name (no valid git config user.name and no valid OS username). Pass --operator <name>.');
       process.exit(1);
     }
     operatorName = inferred.value;
