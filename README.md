@@ -1,31 +1,32 @@
 ```
- _    _  ___   _      _   _______ _____     _____ ___   _      _   _______ _____
-| |  | |/ _ \ | |    | | / /_   _|  ___|   |_   _/ _ \ | |    | | / /_   _|  ___|
-| |  | / /_\ \| |    | |/ /  | | | |__ ______| |/ /_\ \| |    | |/ /  | | | |__
-| |/\| |  _  || |    |    \  | | |  __|______| ||  _  || |    |    \  | | |  __|
-\  /\  / | | || |____| |\  \_| |_| |___      | || | | || |____| |\  \_| |_| |___
- \/  \/\_| |_/\_____/\_| \_/\___/\____/      \_/\_| |_/\_____/\_| \_/\___/\____/
+____    __    ____  ___       __       __  ___  __   _______
+\   \  /  \  /   / /   \     |  |     |  |/  / |  | |   ____|
+ \   \/    \/   / /  ^  \    |  |     |  '  /  |  | |  |__
+  \            / /  /_\  \   |  |     |    <   |  | |   __|
+   \    /\    / /  _____  \  |  `----.|  .  \  |  | |  |____
+    \__/  \__/ /__/     \__\ |_______||__|\__\ |__| |_______|
+
+.___________.    ___       __       __  ___  __   _______
+|           |   /   \     |  |     |  |/  / |  | |   ____|
+`---|  |----`  /  ^  \    |  |     |  '  /  |  | |  |__
+    |  |      /  /_\  \   |  |     |    <   |  | |   __|
+    |  |     /  _____  \  |  `----.|  .  \  |  | |  |____
+    |__|    /__/     \__\ |_______||__|\__\ |__| |_______|
 ```
 
 # claude-walkie-talkie
 
-> Two-way radio for Claude Code and Claude Cowork sessions working on the same project.
+> Give multiple Claude Code and Co-Work sessions a two-way radio to talk to each other about a multi-session project.
 
-**Status:** Plans A + B complete — operator CLI + per-project daemon + MCP server + Claude plugin. Ready for v0.2.0 release.
+You're running two or three Claude sessions on the same project right now — maybe a Code session building the API alongside another writing the UI, or a Cowork session planning the release notes alongside a Code session shipping the migration. They don't know what each other are doing; every cross-session handoff is you copy-pasting context between tabs.
 
-Asynchronous, broadcast-style messaging between every Claude Code session, every Claude Cowork session, and the human operator. One channel file per project, atomic append-at-top, no central server. Plugin works in both Code and Cowork off a single install.
-
-## Why
-
-When you're building a demo in Code while planning a presentation in Cowork (or running two Code sessions on different parts of the same repo), you spend most of your time copy-pasting context between them. Walkie-talkie is a shared async surface so you stop doing that — say "tell the slide deck session the refund flow ships," and it just gets there.
+Walkie-talkie gives them a shared channel: a Markdown file at `.walkie-talkie/channel.md` that every session reads and writes through. Say *"tell the UI session the new endpoint is at `/v2/orders`"* in one Claude session, and it just gets there. No copy-paste, no central server, no third-party relay — the channel is a local file, and a small local daemon arbitrates concurrent writes.
 
 ## Install
 
-> **Current status:** `v0.2.0` is tagged but **not yet published to npm**. The two install paths below cover today (clone + `npm link`) and post-publish (`npm install -g`). Pick whichever applies.
+> `v0.2.0` is tagged but **not yet published to npm**. The two install paths below cover today (clone + `npm link`) and post-publish (`npm install -g`). Pick whichever applies.
 
 ### Today (from a local clone)
-
-The npm package isn't on the registry yet, so install the CLI by cloning and linking:
 
 ```sh
 git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
@@ -56,7 +57,11 @@ And install the plugin from the GitHub marketplace:
 /reload-plugins
 ```
 
-The `/plugin marketplace add` flow above installs walkie-talkie into **Claude Code**. **Claude Cowork** uses a separate install path: an MCP entry in `claude_desktop_config.json` that Claude Desktop bridges into the Cowork sandbox. See [`docs/setup.md`](docs/setup.md#install-the-plugin-into-claude-cowork) for the exact configuration — one MCP entry per walkie-enabled project. `claude.ai` web chat is not supported (cloud-only execution can't reach the local daemon).
+### Cowork install
+
+The `/plugin marketplace add` flow above only reaches **Claude Code**. **Claude Cowork** uses a separate install path: an MCP entry in `claude_desktop_config.json` that Claude Desktop bridges into the Cowork sandbox. See [`docs/setup.md`](docs/setup.md#install-the-plugin-into-claude-cowork) for the exact configuration. One MCP entry per walkie-enabled project (the `WALKIE_PROJECT_ROOT` env var pins the entry to a single project).
+
+`claude.ai` web chat is not supported — cloud-only execution can't reach a local 127.0.0.1 daemon.
 
 > **Trust note:** this plugin ships an MCP server and command hooks. Both run in your environment with your privileges. Review the source under `src/mcp-server/` and `hooks/` before installing if you don't already trust the author.
 
@@ -66,16 +71,25 @@ The `/plugin marketplace add` flow above installs walkie-talkie into **Claude Co
 cd my-project
 walkie init                 # operator name inferred from `git config user.name` (or OS username)
 walkie start
-# In a Claude Code session at the same project root:
-#   "Check the walkie-talkie inbox."   ← the skill will call walkie_inbox
-#   "Tell Cowork the API is wired."    ← walkie_talk
-# Operator grants the first permit:
+```
+
+Then, inside any Claude Code session at that project:
+
+> *"Check the walkie-talkie inbox."* → the skill calls `walkie_inbox`
+>
+> *"Tell the UI session the new endpoint is at `/v2/orders`."* → the skill calls `walkie_talk`
+
+The first time an agent tries to post, it'll be blocked with a permit-required response. The response includes the exact CLI to authorize:
+
+```sh
 walkie permit <session-id> --always
 ```
 
-The operator-side CLI also works standalone — see [Operator CLI](#operator-cli) below.
+After that, the agent can post freely. The operator (you) can revoke the permit at any time with `walkie remove <session-id>`.
 
-## Usage table
+## Operator CLI
+
+The full operator surface is callable directly from a terminal — no agent required. Run `walkie --help` for the live list.
 
 | What you want | How |
 |---|---|
@@ -92,23 +106,19 @@ The operator-side CLI also works standalone — see [Operator CLI](#operator-cli
 | View / edit config | `walkie config` |
 | View activity logs | `walkie logs --tail 50` |
 
-Inside an agent: just speak naturally. "Ask Cowork whether the slide should mention refunds." "What did the demo-builder session say?" The SKILL.md handles dispatch.
+All CLI commands are explicit — there is no natural-language parsing on the CLI; that's the agent's job. Inside a Claude session, just speak naturally: *"Ask the slide-designer session whether the deck should mention refunds."* The skill handles dispatch.
 
 ## Architecture
 
 - **Source of truth:** `.walkie-talkie/channel.md` per project. Atomic append-at-top via `proper-lockfile`; ULID message IDs; multi-writer safe (verified with a 10-process race test).
-- **Daemon:** one local Node process per project, bound to `127.0.0.1:<auto-port>`. Exposes HTTP + SSE; watches the file with `chokidar` to detect operator hand-edits. PID/port recorded in `.walkie-talkie/server.pid` and `.walkie-talkie/server.port`.
+- **Daemon:** one local Node process per project, bound to `127.0.0.1:<auto-port>`. Exposes HTTP + SSE; watches the file with `chokidar` to detect operator hand-edits.
 - **Three surfaces talk to the daemon:**
   - **Operator CLI** (`walkie`) — explicit commands.
   - **MCP server** (`walkie-talkie-mcp`) — exposes the channel to Code and Cowork as tools and resources. Started by the host on demand.
   - **Skills / hooks / slash commands** — natural-language and explicit affordances inside the agent.
-- **Single writer invariant:** the daemon is the only process that writes `channel.md`. The MCP server proxies every mutation through daemon HTTP. The CLI same.
+- **Single-writer invariant:** the daemon is the only process that writes `channel.md`. The MCP server and the CLI both proxy every mutation through daemon HTTP. This is how multi-writer correctness is preserved without a central remote service.
 
-See [`docs/architecture.md`](docs/architecture.md) for a detailed mermaid diagram.
-
-## Operator CLI
-
-The full surface, callable directly from a terminal (no agent required). Run `walkie --help` for the live list; the [usage table](#usage-table) above is the quick reference. All commands are explicit — there is no natural-language parsing on the CLI; that's the agent's job.
+See [`docs/architecture.md`](docs/architecture.md) for the detailed mermaid diagrams and the message lifecycle, and [`docs/api.md`](docs/api.md) for the HTTP + MCP reference.
 
 ## Notification latency
 
@@ -117,31 +127,27 @@ The full surface, callable directly from a terminal (no agent required). Run `wa
 | `walkie tail` (live SSE subscribers) | < 100ms |
 | Operator desktop notification | < 500ms |
 | Receiving agent's next turn — Code (via hook) | sub-second |
-| Receiving agent's next turn — Cowork | bounded by next `walkie_inbox` call until anthropics/claude-code#27398 ships |
+| Receiving agent's next turn — Cowork | bounded by next `walkie_inbox` call until [anthropics/claude-code#27398](https://github.com/anthropics/claude-code/issues/27398) ships |
 
 The agent turn loop is the fundamental upper bound — no agent can be interrupted mid-thought. Walkie-talkie ships three reception mechanisms so practical responsiveness is as fast as the host supports.
-
-## Cowork status
-
-Walkie-talkie's hooks are forward-compatible with Cowork: `hooks/hooks.json` is shipped today and will activate the moment Anthropic fixes [claude-code#27398](https://github.com/anthropics/claude-code/issues/27398). Until then, Cowork receives messages on its next `walkie_inbox` call (skill-driven), which the SKILL.md prompts on every operator turn.
 
 ## FAQ
 
 **Why a file, not a server?** Each project has its own conversation; one file per project keeps it inspectable, diffable, grep-able. The daemon is local-only — there is no remote relay, no third-party state, no auth model to manage.
 
-**Why a daemon?** Two reasons. (1) Long-lived file watching (chokidar) and live event fan-out (SSE) need a process. (2) Centralizing writes through one process per project lets the lockfile do its job without N agents racing for it.
+**Why a daemon?** Two reasons. (1) Long-lived file watching and live event fan-out need a process. (2) Centralizing writes through one process per project lets the lockfile do its job without N agents racing for it.
 
 **Won't this clutter `channel.md`?** Yes — that's the point. The file is the conversation. Archive is the soft-delete (no hard delete, ever — accountability is a design constraint).
 
-**What happens if two sessions pick the same alias?** Last-writer-wins on the rename, and the prior holder is suffixed with `-v2`, `-v3`, etc. The session ID is the immutable identifier; aliases are display sugar.
+**What happens if two sessions pick the same alias?** Last-writer-wins on the rename, and the prior holder is suffixed with `-v2`, `-v3`, etc. Session IDs are immutable; aliases are display sugar.
 
-**Can I edit the file by hand?** Yes — the watcher emits `channel.external_edit` so subscribers know. Hand-edits are an escape hatch, not a primary path; use `walkie talk` instead.
+**Can I edit the file by hand?** Yes — the watcher emits `channel.external_edit` so subscribers know. Hand-edits are an escape hatch, not a primary path; use `walkie talk` for normal operation.
 
 **Is there a hosted version?** No, and there will not be. Walkie-talkie is local-only by design.
 
 ## Troubleshooting
 
-**Plugin install fails with "invalid manifest" or stale temp_local_… cache entry.** A previous failed install left junk in the plugin cache. Wipe it and retry:
+**Plugin install fails with "invalid manifest" or stale `temp_local_…` cache entry.** A previous failed install left junk in the plugin cache. Wipe it and retry:
 
 ```sh
 rm -rf ~/.claude/plugins/cache/temp_local_*
@@ -151,17 +157,11 @@ Then re-run `/plugin marketplace add …` + `/plugin install …`.
 
 **The MCP tools (`walkie_*`) aren't showing up after install.** Run `/reload-plugins` in the Claude Code session. If they still don't appear, the MCP server probably crashed at startup — daemon logs are at `.walkie-talkie/logs/YYYY-MM-DD.log` and the MCP server writes errors to stderr (visible in the host's logs).
 
-**First `walkie_talk` from an agent returns `permit_required`.** Expected. Agent posts are autonomous-write and gated. The response includes the exact CLI to authorize:
-
-```sh
-walkie permit <session-id> --always   # or --once, --duration 30m
-```
-
-Get the `<session-id>` from `walkie sessions`.
+**First `walkie_talk` from an agent returns `permit_required`.** Expected — agent posts are autonomous-write and gated. The response includes the exact CLI to authorize: `walkie permit <session-id> --always` (or `--once`, `--duration 30m`). Get the `<session-id>` from `walkie sessions`.
 
 **`walkie status --all` shows dead daemons from prior runs.** Should self-heal — the machine registry GC-prunes dead PIDs on every read. If it doesn't, `rm ~/.walkie-talkie/registry.json` wipes the machine-wide registry; per-project state under each project's `.walkie-talkie/` is unaffected.
 
-**Cowork agent isn't seeing your messages between turns.** Cowork's plugin host doesn't fire hooks today ([anthropics/claude-code#27398](https://github.com/anthropics/claude-code/issues/27398)). The SKILL.md instructs the agent to call `walkie_inbox` on every operator turn, which restores message flow — just bounded by turn latency, not sub-second.
+**Cowork agent isn't seeing your messages between turns.** Cowork's plugin host doesn't fire hooks today ([anthropics/claude-code#27398](https://github.com/anthropics/claude-code/issues/27398)). The skill instructs the agent to call `walkie_inbox` on every operator turn, which restores message flow — just bounded by turn latency, not sub-second.
 
 ## Development
 
@@ -174,7 +174,7 @@ npm test
 npm run lint
 ```
 
-The local clone exposes the `walkie` binary on your PATH via `npm link`. Run `npm unlink -g claude-walkie-talkie` to remove it.
+Run `npm unlink -g claude-walkie-talkie` to remove the global symlink.
 
 ## License
 
