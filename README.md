@@ -47,7 +47,7 @@ And install the plugin from the GitHub marketplace:
 /reload-plugins
 ```
 
-The plugin auto-discovers in both Claude Code and Claude Cowork — same install, both surfaces.
+The `/plugin marketplace add` flow above installs walkie-talkie into **Claude Code**. **Claude Cowork** uses a separate install path: an MCP entry in `claude_desktop_config.json` that Claude Desktop bridges into the Cowork sandbox. See [`docs/setup.md`](docs/setup.md#install-the-plugin-into-claude-cowork) for the exact configuration — one MCP entry per walkie-enabled project. `claude.ai` web chat is not supported (cloud-only execution can't reach the local daemon).
 
 > **Trust note:** this plugin ships an MCP server and command hooks. Both run in your environment with your privileges. Review the source under `src/mcp-server/` and `hooks/` before installing if you don't already trust the author.
 

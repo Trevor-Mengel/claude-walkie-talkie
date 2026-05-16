@@ -63,25 +63,41 @@ After install, open a session in any project that has `.walkie-talkie/` and the 
 
 ## Install the plugin into Claude Cowork
 
-Same package, same plugin manifest. Override the MCP environment variable so Cowork registers as `claude-cowork` (not `claude-code`). In your Cowork MCP config:
+Cowork uses a different install path than Claude Code. It does NOT pick up plugins installed via `/plugin marketplace add` — Cowork's MCP servers are configured at the **Claude Desktop** level via `claude_desktop_config.json`, and Claude Desktop bridges them into the Cowork sandbox.
 
-```json
-{
-  "mcpServers": {
-    "walkie-talkie": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/walkie-talkie-mcp.js"],
-      "env": { "WALKIE_TOOL": "claude-cowork" }
-    }
-  }
-}
-```
+> **Why the separate config?** Cowork runs inside a sandboxed VM with a static network allowlist that blocks `127.0.0.1`. The bridge works because Claude Desktop spawns the MCP server process on the host machine (not in the sandbox) and forwards only the stdio JSON-RPC frames into Cowork. The MCP server can therefore reach the local walkie daemon on `127.0.0.1` normally, while Cowork still sees the tools.
 
-### Known limitation: Cowork hooks
+### Setup
 
-Plugin hooks do not currently fire in Claude Cowork due to [anthropics/claude-code#27398](https://github.com/anthropics/claude-code/issues/27398). The walkie-talkie plugin ships them anyway — they activate the moment Anthropic ships the fix. Until then, Cowork picks up inbound messages via the skill, which prompts `walkie_inbox` on every operator turn.
+1. Open `~/Library/Application Support/Claude/claude_desktop_config.json` (Linux: `~/.config/Claude/...`; Windows: `%APPDATA%\Claude\...`).
+2. Add an entry under `mcpServers`. Two things to note vs the plugin's `.mcp.json`: use an **absolute path** (the `${CLAUDE_PLUGIN_ROOT}` variable doesn't expand in this file), and **pin the project root** explicitly via `WALKIE_PROJECT_ROOT` (the MCP server is spawned with no project context otherwise and will crash on `findProjectRoot`):
 
-If your Cowork host supports MCP resource subscriptions, the `walkie://channel/inbox` resource will also push refresh notifications as messages arrive — no skill round-trip required.
+   ```json
+   {
+     "mcpServers": {
+       "walkie-talkie": {
+         "command": "node",
+         "args": ["/absolute/path/to/claude-walkie-talkie/bin/walkie-talkie-mcp.js"],
+         "env": {
+           "WALKIE_TOOL": "claude-cowork",
+           "WALKIE_PROJECT_ROOT": "/absolute/path/to/your/project"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Fully quit Claude Desktop** (Cmd+Q on macOS — closing the window isn't enough; the config is only read on launch).
+4. Relaunch Desktop, open a Cowork session at the same project.
+5. First `walkie_talk` from Cowork will be permit-blocked — the response gives you the exact `walkie permit cw_<id> --always` command to run from a terminal.
+
+### Known limitations
+
+**One project per `claude_desktop_config.json` entry.** `WALKIE_PROJECT_ROOT` is set once at MCP-server-spawn time, so the bridge serves exactly one walkie-enabled project per entry. To use Cowork with multiple walkie projects, add multiple named entries (`walkie-talkie-projectA`, `walkie-talkie-projectB`, …) each with its own `WALKIE_PROJECT_ROOT`, and full-restart Desktop. This differs from Claude Code, which sets `WALKIE_PROJECT_ROOT` per session based on which project the session is opened in.
+
+**Cowork hooks do not fire.** [anthropics/claude-code#27398](https://github.com/anthropics/claude-code/issues/27398) — the plugin's `hooks/hooks.json` is forward-compatible and will activate the moment Anthropic ships the fix. Until then, Cowork picks up inbound messages via the skill's instruction to call `walkie_inbox` on every operator turn. If Cowork's MCP host honors resource subscriptions, the `walkie://channel/inbox` resource also pushes refresh notifications — no skill round-trip required.
+
+**`claude.ai` web chat is not supported.** Web chat runs in the cloud and can only reach remote HTTP MCP servers (Slack, Notion, etc. via OAuth). It has no path to a local-machine daemon. Walkie-talkie's local-first design is fundamentally incompatible with web chat; this is by design (spec §1, §26).
 
 ## Verifying the install
 
