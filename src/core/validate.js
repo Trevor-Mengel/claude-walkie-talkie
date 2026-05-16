@@ -1,6 +1,7 @@
 const SESSION_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const ALIAS_RE = /^[a-z][a-z0-9-]{0,31}$/;
 const ALLOWED_TOOLS = new Set(['claude-code', 'claude-cowork', 'operator']);
+const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const BODY_FORBIDDEN_PATTERNS = [/\n## /, /<!--\s*walkie:msg/i];
 const REASON_FORBIDDEN_PATTERNS = [/\n## /, /<!--\s*walkie:msg/i, /"/];
 
@@ -14,6 +15,10 @@ export function isValidAlias(value) {
 
 export function isValidTool(value) {
   return typeof value === 'string' && ALLOWED_TOOLS.has(value);
+}
+
+export function isValidUlid(value) {
+  return typeof value === 'string' && ULID_RE.test(value);
 }
 
 /**

@@ -16,7 +16,8 @@ import {
   validateActorFields,
   isValidSessionId,
   isValidMessageBody,
-  isValidArchiveReason
+  isValidArchiveReason,
+  isValidUlid
 } from '../../core/validate.js';
 
 function channelPath(wtDir) {
@@ -48,6 +49,9 @@ export function channelRoutes() {
 
   router.get('/channel/since/:ulid', async (req, res, next) => {
     try {
+      if (!isValidUlid(req.params.ulid)) {
+        return res.status(400).json({ error: 'invalid id format' });
+      }
       const { messages } = await readChannel(channelPath(req.app.locals.wtDir));
       const after = req.params.ulid;
       const filtered = messages.filter((m) => m.id > after && !m.archived);
@@ -59,6 +63,9 @@ export function channelRoutes() {
 
   router.get('/channel/message/:id', async (req, res, next) => {
     try {
+      if (!isValidUlid(req.params.id)) {
+        return res.status(400).json({ error: 'invalid id format' });
+      }
       const wtDir = req.app.locals.wtDir;
       const { messages } = await readChannel(channelPath(wtDir));
       const message = messages.find((m) => m.id === req.params.id);
@@ -127,6 +134,9 @@ export function channelRoutes() {
 
   router.patch('/channel/message/:id', async (req, res, next) => {
     try {
+      if (!isValidUlid(req.params.id)) {
+        return res.status(400).json({ error: 'invalid id format' });
+      }
       const wtDir = req.app.locals.wtDir;
       const events = req.app.locals.events;
       const { body, editedBy } = req.body;
@@ -147,6 +157,9 @@ export function channelRoutes() {
 
   router.post('/channel/message/:id/archive', async (req, res, next) => {
     try {
+      if (!isValidUlid(req.params.id)) {
+        return res.status(400).json({ error: 'invalid id format' });
+      }
       const wtDir = req.app.locals.wtDir;
       const events = req.app.locals.events;
       const { archivedBy, reason } = req.body;

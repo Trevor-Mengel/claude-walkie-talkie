@@ -1,9 +1,14 @@
 import { appendFile, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolve, sep } from 'node:path';
 
 function filename(sessionsDir, msgId) {
-  return join(sessionsDir, `${msgId}.history.md`);
+  const sessionsAbs = resolve(sessionsDir);
+  const candidate = resolve(sessionsAbs, `${msgId}.history.md`);
+  if (!candidate.startsWith(sessionsAbs + sep) && candidate !== sessionsAbs) {
+    throw new Error(`history filename outside sessions directory: ${candidate}`);
+  }
+  return candidate;
 }
 
 /**
