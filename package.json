@@ -1,6 +1,6 @@
 {
   "name": "claude-walkie-talkie",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Asynchronous two-way messaging between concurrent Claude Code and Cowork sessions.",
   "type": "module",
   "license": "MIT",
