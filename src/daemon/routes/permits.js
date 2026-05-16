@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { listPermits, grantPermit, revokePermit } from '../permits.js';
+import { isValidSessionId } from '../../core/validate.js';
 
 export function permitsRoutes() {
   const router = Router();
@@ -18,6 +19,9 @@ export function permitsRoutes() {
       const events = req.app.locals.events;
       const { sessionId, mode, durationMs } = req.body;
       if (!sessionId || !mode) return res.status(400).json({ error: 'sessionId and mode required' });
+      if (!isValidSessionId(sessionId)) {
+        return res.status(400).json({ error: 'invalid sessionId format' });
+      }
       if (!['once', 'duration', 'always'].includes(mode)) {
         return res.status(400).json({ error: 'mode must be once|duration|always' });
       }
@@ -31,6 +35,9 @@ export function permitsRoutes() {
 
   router.delete('/permits/:sessionId', async (req, res, next) => {
     try {
+      if (!isValidSessionId(req.params.sessionId)) {
+        return res.status(400).json({ error: 'invalid sessionId format' });
+      }
       await revokePermit(req.app.locals.wtDir, req.params.sessionId);
       req.app.locals.events.emit('permit.revoked', { sessionId: req.params.sessionId });
       res.json({ ok: true });

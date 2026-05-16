@@ -45,7 +45,7 @@ describe('channel routes', () => {
         body: 'hello world',
         type: 'broadcast',
         fromSessionId: 'operator',
-        fromAlias: 'Trevor',
+        fromAlias: 'operator',
         fromTool: 'operator'
       });
     expect(post.status).toBe(201);
@@ -60,7 +60,7 @@ describe('channel routes', () => {
     const { app } = createServer({ wtDir: project.wtDir });
     const post = await request(app)
       .post('/channel/message')
-      .send({ body: 'first', type: 'broadcast', fromSessionId: 'operator', fromAlias: 'Trevor', fromTool: 'operator' });
+      .send({ body: 'first', type: 'broadcast', fromSessionId: 'operator', fromAlias: 'operator', fromTool: 'operator' });
     const id = post.body.id;
     await request(app).patch(`/channel/message/${id}`).send({ body: 'second', editedBy: 'operator' });
     const get = await request(app).get(`/channel/message/${id}`);
@@ -74,7 +74,7 @@ describe('channel routes', () => {
     const { app } = createServer({ wtDir: project.wtDir });
     const post = await request(app)
       .post('/channel/message')
-      .send({ body: 'kill me', type: 'broadcast', fromSessionId: 'operator', fromAlias: 'Trevor', fromTool: 'operator' });
+      .send({ body: 'kill me', type: 'broadcast', fromSessionId: 'operator', fromAlias: 'operator', fromTool: 'operator' });
     const id = post.body.id;
     const arch = await request(app)
       .post(`/channel/message/${id}/archive`)
@@ -93,7 +93,7 @@ describe('channel routes', () => {
       body: 'a',
       type: 'broadcast',
       fromSessionId: 'operator',
-      fromAlias: 'Trevor',
+      fromAlias: 'operator',
       fromTool: 'operator'
     });
     await new Promise((r) => setTimeout(r, 5));
@@ -101,7 +101,7 @@ describe('channel routes', () => {
       body: 'b',
       type: 'broadcast',
       fromSessionId: 'operator',
-      fromAlias: 'Trevor',
+      fromAlias: 'operator',
       fromTool: 'operator'
     });
     const res = await request(app).get(`/channel/since/${a.body.id}`);
@@ -132,7 +132,7 @@ describe('sessions routes', () => {
   test('POST /sessions/:id/rename renames + fulfills matching invitation', async () => {
     project = createTmpProject();
     const { app } = createServer({ wtDir: project.wtDir });
-    const join = await request(app).post('/sessions/join').send({ tool: 'codex' });
+    const join = await request(app).post('/sessions/join').send({ tool: 'claude-cowork' });
     await request(app).post('/sessions/invite').send({ alias: 'codex-helper' });
     const renamed = await request(app)
       .post(`/sessions/${join.body.sessionId}/rename`)

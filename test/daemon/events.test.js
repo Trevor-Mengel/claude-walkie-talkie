@@ -36,7 +36,7 @@ describe('SSE events', () => {
         body: 'hi',
         type: 'broadcast',
         fromSessionId: 'operator',
-        fromAlias: 'Trevor',
+        fromAlias: 'operator',
         fromTool: 'operator'
       })
     });

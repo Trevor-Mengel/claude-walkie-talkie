@@ -12,6 +12,7 @@ import { now } from '../../core/time.js';
 import { parseMentions, resolveMentions } from '../../core/mentions.js';
 import { loadSessions } from '../../registry/sessions.js';
 import { checkAndConsume } from '../permits.js';
+import { validateActorFields, isValidSessionId } from '../../core/validate.js';
 
 function channelPath(wtDir) {
   return join(wtDir, 'channel.md');
@@ -72,6 +73,8 @@ export function channelRoutes() {
       if (!body || !fromSessionId) {
         return res.status(400).json({ error: 'body and fromSessionId are required' });
       }
+      const validationErr = validateActorFields({ fromSessionId, fromAlias, fromTool });
+      if (validationErr) return res.status(400).json({ error: validationErr });
       if (autonomous && fromSessionId !== 'operator') {
         const check = await checkAndConsume(wtDir, fromSessionId);
         if (!check.allowed) {
@@ -120,6 +123,9 @@ export function channelRoutes() {
       if (!body || !editedBy) {
         return res.status(400).json({ error: 'body and editedBy are required' });
       }
+      if (!isValidSessionId(editedBy)) {
+        return res.status(400).json({ error: 'invalid editedBy format' });
+      }
       const { revision } = await editMessage(channelPath(wtDir), req.params.id, body, editedBy);
       events.emit('message.edited', { id: req.params.id, revision });
       res.json({ id: req.params.id, revision });
@@ -135,6 +141,9 @@ export function channelRoutes() {
       const events = req.app.locals.events;
       const { archivedBy, reason } = req.body;
       if (!archivedBy) return res.status(400).json({ error: 'archivedBy required' });
+      if (!isValidSessionId(archivedBy)) {
+        return res.status(400).json({ error: 'invalid archivedBy format' });
+      }
       await archiveMessage(channelPath(wtDir), req.params.id, archivedBy, reason ?? null);
       events.emit('message.archived', { id: req.params.id, by: archivedBy });
       res.json({ ok: true });

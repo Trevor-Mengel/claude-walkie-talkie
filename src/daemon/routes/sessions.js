@@ -10,6 +10,7 @@ import {
   findInvitation,
   fulfillInvitation
 } from '../../registry/invitations.js';
+import { isValidSessionId, isValidAlias, isValidTool } from '../../core/validate.js';
 
 export function sessionsRoutes() {
   const router = Router();
@@ -31,6 +32,13 @@ export function sessionsRoutes() {
       const events = req.app.locals.events;
       const { tool, sessionId, alias } = req.body;
       if (!tool) return res.status(400).json({ error: 'tool required' });
+      if (!isValidTool(tool)) return res.status(400).json({ error: 'invalid tool format' });
+      if (sessionId !== undefined && !isValidSessionId(sessionId)) {
+        return res.status(400).json({ error: 'invalid sessionId format' });
+      }
+      if (alias !== undefined && alias !== null && !isValidAlias(alias)) {
+        return res.status(400).json({ error: 'invalid alias format' });
+      }
       const session = await joinSession(wtDir, { tool, sessionId, alias });
       events.emit('session.joined', { session_id: session.sessionId, alias: session.alias, tool: session.tool });
       res.json(session);
@@ -45,6 +53,10 @@ export function sessionsRoutes() {
       const events = req.app.locals.events;
       const { alias } = req.body;
       if (!alias) return res.status(400).json({ error: 'alias required' });
+      if (!isValidSessionId(req.params.id)) {
+        return res.status(400).json({ error: 'invalid sessionId format' });
+      }
+      if (!isValidAlias(alias)) return res.status(400).json({ error: 'invalid alias format' });
       const session = await renameSession(wtDir, req.params.id, alias);
       const matchingInvite = await findInvitation(wtDir, alias);
       let fulfilled = false;
@@ -69,6 +81,7 @@ export function sessionsRoutes() {
       const wtDir = req.app.locals.wtDir;
       const { alias, invitedBy = 'operator', fromMessage = null } = req.body;
       if (!alias) return res.status(400).json({ error: 'alias required' });
+      if (!isValidAlias(alias)) return res.status(400).json({ error: 'invalid alias format' });
       await addInvitation(wtDir, { alias, invitedBy, fromMessage });
       res.status(201).json({ ok: true });
     } catch (e) {

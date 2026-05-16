@@ -34,7 +34,7 @@ describe('permits', () => {
       body: 'manual hi',
       type: 'broadcast',
       fromSessionId: 'operator',
-      fromAlias: 'Trevor',
+      fromAlias: 'operator',
       fromTool: 'operator'
     });
     expect(res.status).toBe(201);
