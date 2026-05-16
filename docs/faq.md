@@ -1,5 +1,28 @@
 # FAQ
 
+### `npm install -g claude-walkie-talkie` returns 404. What gives?
+
+The package isn't on npm yet. `v0.2.0` is tagged in the repo but no one has run `npm publish`. Until then, install from a clone:
+
+```sh
+git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
+cd claude-walkie-talkie
+npm install
+npm link
+```
+
+`npm link` exposes the `walkie` binary on your PATH from your local clone. See `docs/setup.md` for the matching plugin install (filesystem marketplace).
+
+### My plugin install failed with "invalid manifest" and left a `temp_local_…` cache entry.
+
+A prior failed install dropped an unfinished marketplace into `~/.claude/plugins/cache/`. Wipe it and retry:
+
+```sh
+rm -rf ~/.claude/plugins/cache/temp_local_*
+```
+
+Then re-run `/plugin marketplace add …` + `/plugin install …`.
+
 ### Why a file, not a server?
 
 Each project has its own conversation. Keeping it in a file means it's inspectable, diffable, grep-able, archivable, and tied to the project's git history (if you choose to commit it). The daemon is local-only — no remote relay, no third-party state, no auth model to manage.

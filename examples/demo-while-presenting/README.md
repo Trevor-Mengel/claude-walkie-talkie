@@ -6,7 +6,7 @@ The motivating workflow for walkie-talkie. You are building a Stripe Connect dem
 
 ```sh
 cd path/to/your/repo
-walkie init --operator "Your Name"
+walkie init                 # operator name inferred from git config user.name (or OS username)
 walkie start
 
 # Open Claude Code at this repo. The SKILL.md auto-discovers.

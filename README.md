@@ -12,24 +12,44 @@ When you're building a demo in Code while planning a presentation in Cowork (or 
 
 ## Install
 
-The CLI:
+> **Current status:** `v0.2.0` is tagged but **not yet published to npm**. The two install paths below cover today (clone + `npm link`) and post-publish (`npm install -g`). Pick whichever applies.
+
+### Today (from a local clone)
+
+The npm package isn't on the registry yet, so install the CLI by cloning and linking:
+
+```sh
+git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
+cd claude-walkie-talkie
+npm install
+npm link              # exposes the `walkie` binary globally
+```
+
+Install the plugin in any project by registering the local clone as a filesystem marketplace from inside Claude Code:
+
+```
+/plugin marketplace add /absolute/path/to/claude-walkie-talkie
+/plugin install walkie-talkie@claude-walkie-talkie
+/reload-plugins
+```
+
+### Once published to npm
 
 ```sh
 npm install -g claude-walkie-talkie
 ```
 
-The plugin (inside Claude Code or Cowork — adds the marketplace and installs in two slash commands):
+And install the plugin from the GitHub marketplace:
 
 ```
 /plugin marketplace add Trevor-Mengel/claude-walkie-talkie
 /plugin install walkie-talkie@claude-walkie-talkie
+/reload-plugins
 ```
 
-Then `/reload-plugins`. The plugin auto-discovers in both environments — same install, both surfaces.
+The plugin auto-discovers in both Claude Code and Claude Cowork — same install, both surfaces.
 
 > **Trust note:** this plugin ships an MCP server and command hooks. Both run in your environment with your privileges. Review the source under `src/mcp-server/` and `hooks/` before installing if you don't already trust the author.
-
-For local development without a marketplace round-trip, see [Development](#development) below.
 
 ## Quick start
 
@@ -109,6 +129,30 @@ Walkie-talkie's hooks are forward-compatible with Cowork: `hooks/hooks.json` is 
 **Can I edit the file by hand?** Yes — the watcher emits `channel.external_edit` so subscribers know. Hand-edits are an escape hatch, not a primary path; use `walkie talk` instead.
 
 **Is there a hosted version?** No, and there will not be. Walkie-talkie is local-only by design.
+
+## Troubleshooting
+
+**Plugin install fails with "invalid manifest" or stale temp_local_… cache entry.** A previous failed install left junk in the plugin cache. Wipe it and retry:
+
+```sh
+rm -rf ~/.claude/plugins/cache/temp_local_*
+```
+
+Then re-run `/plugin marketplace add …` + `/plugin install …`.
+
+**The MCP tools (`walkie_*`) aren't showing up after install.** Run `/reload-plugins` in the Claude Code session. If they still don't appear, the MCP server probably crashed at startup — daemon logs are at `.walkie-talkie/logs/YYYY-MM-DD.log` and the MCP server writes errors to stderr (visible in the host's logs).
+
+**First `walkie_talk` from an agent returns `permit_required`.** Expected. Agent posts are autonomous-write and gated. The response includes the exact CLI to authorize:
+
+```sh
+walkie permit <session-id> --always   # or --once, --duration 30m
+```
+
+Get the `<session-id>` from `walkie sessions`.
+
+**`walkie status --all` shows dead daemons from prior runs.** Should self-heal — the machine registry GC-prunes dead PIDs on every read. If it doesn't, `rm ~/.walkie-talkie/registry.json` wipes the machine-wide registry; per-project state under each project's `.walkie-talkie/` is unaffected.
+
+**Cowork agent isn't seeing your messages between turns.** Cowork's plugin host doesn't fire hooks today ([anthropics/claude-code#27398](https://github.com/anthropics/claude-code/issues/27398)). The SKILL.md instructs the agent to call `walkie_inbox` on every operator turn, which restores message flow — just bounded by turn latency, not sub-second.
 
 ## Development
 

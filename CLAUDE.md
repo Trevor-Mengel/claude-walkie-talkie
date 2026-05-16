@@ -18,7 +18,7 @@ Manual end-to-end smoke (no test runner):
 
 ```sh
 mkdir -p /tmp/walkie-smoke && cd /tmp/walkie-smoke
-node /path/to/repo/bin/walkie.js init --operator "You" --name "smoke"
+node /path/to/repo/bin/walkie.js init   # operator inferred from git config user.name (or OS username)
 node /path/to/repo/bin/walkie.js start
 node /path/to/repo/bin/walkie.js talk "hello"
 node /path/to/repo/bin/walkie.js read --limit 1
