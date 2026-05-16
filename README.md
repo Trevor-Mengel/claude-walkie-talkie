@@ -28,35 +28,33 @@ Walkie-talkie gives them a shared channel: a Markdown file at `.walkie-talkie/ch
 
 ## Install
 
-> `v0.2.0` is tagged but **not yet published to npm**. The two install paths below cover today (clone + `npm link`) and post-publish (`npm install -g`). Pick whichever applies.
-
-### Today (from a local clone)
-
-```sh
-git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
-cd claude-walkie-talkie
-npm install
-npm link              # exposes the `walkie` binary globally
-```
-
-Install the plugin in any project by registering the local clone as a filesystem marketplace from inside Claude Code:
-
-```
-/plugin marketplace add /absolute/path/to/claude-walkie-talkie
-/plugin install walkie-talkie@claude-walkie-talkie
-/reload-plugins
-```
-
-### Once published to npm
+The CLI:
 
 ```sh
 npm install -g claude-walkie-talkie
 ```
 
-And install the plugin from the GitHub marketplace:
+The plugin (run inside Claude Code):
 
 ```
 /plugin marketplace add Trevor-Mengel/claude-walkie-talkie
+/plugin install walkie-talkie@claude-walkie-talkie
+/reload-plugins
+```
+
+### Local-clone install (for development or for testing unreleased changes)
+
+```sh
+git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
+cd claude-walkie-talkie
+npm install
+npm link              # exposes the `walkie` binary globally from this clone
+```
+
+Then register the clone as a filesystem marketplace from inside Claude Code:
+
+```
+/plugin marketplace add /absolute/path/to/claude-walkie-talkie
 /plugin install walkie-talkie@claude-walkie-talkie
 /reload-plugins
 ```
