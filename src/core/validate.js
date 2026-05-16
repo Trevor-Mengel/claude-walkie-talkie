@@ -1,6 +1,8 @@
 const SESSION_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const ALIAS_RE = /^[a-z][a-z0-9-]{0,31}$/;
 const ALLOWED_TOOLS = new Set(['claude-code', 'claude-cowork', 'operator']);
+const BODY_FORBIDDEN_PATTERNS = [/\n## /, /<!--\s*walkie:msg/i];
+const REASON_FORBIDDEN_PATTERNS = [/\n## /, /<!--\s*walkie:msg/i, /"/];
 
 export function isValidSessionId(value) {
   return typeof value === 'string' && SESSION_ID_RE.test(value);
@@ -29,4 +31,15 @@ export function validateActorFields({ fromSessionId, fromAlias, fromTool }) {
     return 'invalid fromTool format';
   }
   return null;
+}
+
+export function isValidMessageBody(value) {
+  if (typeof value !== 'string' || value.length === 0) return false;
+  return !BODY_FORBIDDEN_PATTERNS.some((re) => re.test(value));
+}
+
+export function isValidArchiveReason(value) {
+  if (value === null || value === undefined) return true;
+  if (typeof value !== 'string') return false;
+  return !REASON_FORBIDDEN_PATTERNS.some((re) => re.test(value));
 }

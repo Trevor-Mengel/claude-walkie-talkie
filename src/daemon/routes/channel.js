@@ -12,7 +12,12 @@ import { now } from '../../core/time.js';
 import { parseMentions, resolveMentions } from '../../core/mentions.js';
 import { loadSessions } from '../../registry/sessions.js';
 import { checkAndConsume } from '../permits.js';
-import { validateActorFields, isValidSessionId } from '../../core/validate.js';
+import {
+  validateActorFields,
+  isValidSessionId,
+  isValidMessageBody,
+  isValidArchiveReason
+} from '../../core/validate.js';
 
 function channelPath(wtDir) {
   return join(wtDir, 'channel.md');
@@ -72,6 +77,11 @@ export function channelRoutes() {
       const { body, type = 'broadcast', fromSessionId, fromAlias, fromTool, replyTo, autonomous } = req.body;
       if (!body || !fromSessionId) {
         return res.status(400).json({ error: 'body and fromSessionId are required' });
+      }
+      if (!isValidMessageBody(body)) {
+        return res.status(400).json({
+          error: 'body contains forbidden marker tokens (\\n## or <!-- walkie:msg)'
+        });
       }
       const validationErr = validateActorFields({ fromSessionId, fromAlias, fromTool });
       if (validationErr) return res.status(400).json({ error: validationErr });
@@ -143,6 +153,11 @@ export function channelRoutes() {
       if (!archivedBy) return res.status(400).json({ error: 'archivedBy required' });
       if (!isValidSessionId(archivedBy)) {
         return res.status(400).json({ error: 'invalid archivedBy format' });
+      }
+      if (!isValidArchiveReason(reason)) {
+        return res.status(400).json({
+          error: 'reason contains forbidden marker tokens or quote characters'
+        });
       }
       await archiveMessage(channelPath(wtDir), req.params.id, archivedBy, reason ?? null);
       events.emit('message.archived', { id: req.params.id, by: archivedBy });
