@@ -132,11 +132,11 @@ claude-walkie-talkie/
   "type": "module",
   "license": "MIT",
   "author": "Trevor Mengel <trevor@cloutdesk.com>",
-  "homepage": "https://github.com/trevormengel/claude-walkie-talkie",
-  "bugs": "https://github.com/trevormengel/claude-walkie-talkie/issues",
+  "homepage": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
+  "bugs": "https://github.com/Trevor-Mengel/claude-walkie-talkie/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/trevormengel/claude-walkie-talkie.git"
+    "url": "https://github.com/Trevor-Mengel/claude-walkie-talkie.git"
   },
   "engines": { "node": ">=18" },
   "bin": { "walkie": "./bin/walkie.js" },

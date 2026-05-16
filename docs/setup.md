@@ -24,7 +24,7 @@ npx claude-walkie-talkie walkie init --operator "Your Name"
 From inside Claude Code:
 
 ```
-/plugin marketplace add trevormengel/claude-walkie-talkie
+/plugin marketplace add Trevor-Mengel/claude-walkie-talkie
 /plugin install walkie-talkie@claude-walkie-talkie
 /reload-plugins
 ```

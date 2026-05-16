@@ -21,7 +21,7 @@ npm install -g claude-walkie-talkie
 The plugin (inside Claude Code or Cowork — adds the marketplace and installs in two slash commands):
 
 ```
-/plugin marketplace add trevormengel/claude-walkie-talkie
+/plugin marketplace add Trevor-Mengel/claude-walkie-talkie
 /plugin install walkie-talkie@claude-walkie-talkie
 ```
 
@@ -113,7 +113,7 @@ Walkie-talkie's hooks are forward-compatible with Cowork: `hooks/hooks.json` is 
 ## Development
 
 ```sh
-git clone https://github.com/trevormengel/claude-walkie-talkie.git
+git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
 cd claude-walkie-talkie
 npm install
 npm link              # makes the `walkie` command available globally for local dev

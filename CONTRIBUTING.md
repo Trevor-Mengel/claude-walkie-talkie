@@ -13,7 +13,7 @@ Thanks for your interest in walkie-talkie. This is a small, opinionated project 
 ## Setup
 
 ```sh
-git clone https://github.com/trevormengel/claude-walkie-talkie.git
+git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
 cd claude-walkie-talkie
 npm install
 npm link

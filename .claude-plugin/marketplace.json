@@ -10,8 +10,8 @@
       "name": "walkie-talkie",
       "source": "./",
       "description": "Asynchronous broadcast-style messaging between concurrent Claude Code and Cowork sessions. Includes SKILL.md, hooks, slash commands, and an MCP server.",
-      "homepage": "https://github.com/trevormengel/claude-walkie-talkie",
-      "repository": "https://github.com/trevormengel/claude-walkie-talkie",
+      "homepage": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
+      "repository": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
       "license": "MIT",
       "keywords": ["mcp", "messaging", "cowork", "multi-agent", "skill"],
       "category": "productivity"

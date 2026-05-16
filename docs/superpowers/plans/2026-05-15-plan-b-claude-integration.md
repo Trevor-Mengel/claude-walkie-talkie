@@ -2254,7 +2254,7 @@ git commit -m "feat(plugin): /walkie-inbox and /walkie-talk slash commands"
   "name": "walkie-talkie",
   "version": "0.2.0",
   "description": "Two-way radio for Claude Code and Claude Cowork sessions working on the same project.",
-  "homepage": "https://github.com/trevormengel/claude-walkie-talkie",
+  "homepage": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
   "license": "MIT",
   "skills": ["skills/walkie-talkie/SKILL.md"],
   "hooks": "hooks/hooks.json",
@@ -2405,7 +2405,7 @@ Walkie-talkie's hooks are forward-compatible with Cowork: `hooks/hooks.json` is 
 ## Development
 
 ```sh
-git clone https://github.com/trevormengel/claude-walkie-talkie.git
+git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
 cd claude-walkie-talkie
 npm install
 npm link
@@ -2948,7 +2948,7 @@ Thanks for your interest in walkie-talkie. This is a small, opinionated project 
 ## Setup
 
 ```sh
-git clone https://github.com/trevormengel/claude-walkie-talkie.git
+git clone https://github.com/Trevor-Mengel/claude-walkie-talkie.git
 cd claude-walkie-talkie
 npm install
 npm link
