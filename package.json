@@ -9,7 +9,7 @@
   "bugs": "https://github.com/Trevor-Mengel/claude-walkie-talkie/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Trevor-Mengel/claude-walkie-talkie.git"
+    "url": "git+https://github.com/Trevor-Mengel/claude-walkie-talkie.git"
   },
   "engines": {
     "node": ">=18"
@@ -26,8 +26,8 @@
     "workflow"
   ],
   "bin": {
-    "walkie": "./bin/walkie.js",
-    "walkie-talkie-mcp": "./bin/walkie-talkie-mcp.js"
+    "walkie": "bin/walkie.js",
+    "walkie-talkie-mcp": "bin/walkie-talkie-mcp.js"
   },
   "files": [
     "bin",
