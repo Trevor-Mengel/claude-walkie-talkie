@@ -1,4 +1,0 @@
-interface:
-  display_name: "Devsync"
-  short_description: "Safely hand off work between Trevor's two Macs"
-  default_prompt: "Check devsync status and perform the requested workstation writer handoff safely."
