@@ -224,11 +224,19 @@ describe('reading never writes', () => {
 });
 
 describe('structured refusals', () => {
-  test('permit_required has one shape, shared by collabcast_talk and collabcast_reply', async () => {
+  test('scope_required has one shape, shared by collabcast_talk and collabcast_reply', async () => {
+    // This test used to pin `permit_required`, injected into a publish mock. P0 deleted the
+    // per-post permit gate — publishing is now a standing `channel:publish` scope and no write
+    // route can raise `permit_required` any more, so the old assertion described a path
+    // production cannot reach and would have passed with the tools' handling deleted.
+    // `scope_required` is the reachable refusal for "you may not publish": a narrow capability
+    // is narrow, not invalid, so the model must obtain a wider one rather than retry.
+    // (`permit_required` still exists, but only where it is real: `collabcast_enroll` raises it
+    // when no operator approval injected a code.)
     const reject = () =>
       Promise.reject(
-        collabcastError('permit_required', 'an operator permit is required to publish', {
-          operation: 'channel.publish'
+        collabcastError('scope_required', 'this capability was not granted channel:publish', {
+          scope: 'channel:publish'
         })
       );
     const talkApi = recordingApi({ post: reject });
@@ -247,11 +255,18 @@ describe('structured refusals', () => {
     const fromTalk = await callTool(talkTools, 'collabcast_talk', { body: 'x' });
     const fromReply = await callTool(replyTools, 'collabcast_reply', { reply_to: '01H', body: 'x' });
 
-    expect(payloadOf(fromTalk)).toEqual(payloadOf(fromReply));
-    expect(Object.keys(payloadOf(fromTalk)).sort()).toEqual(['code', 'detail', 'message', 'status']);
-    // A permit request is an outcome to act on, not a tool error.
-    expect(fromTalk.isError).toBeUndefined();
-    expect(fromReply.isError).toBeUndefined();
+    // Identical APART FROM `tool`, which each result stamps with its own origin. That
+    // difference is correct and worth pinning too: a shared builder must not lose track of
+    // which tool refused. The shared-shape property is the one that regressed in v0.2, where
+    // each tool hand-built its own payload for the same condition.
+    const { tool: talkTool, ...talkRest } = payloadOf(fromTalk);
+    const { tool: replyTool, ...replyRest } = payloadOf(fromReply);
+    expect(talkRest).toEqual(replyRest);
+    expect([talkTool, replyTool]).toEqual(['collabcast_talk', 'collabcast_reply']);
+    expect(fromTalk.isError).toBe(fromReply.isError);
+    expect(payloadOf(fromTalk).code).toBe('scope_required');
+    // Actionable: the model must be told a NEW capability is needed, not to retry this one.
+    expect(JSON.stringify(payloadOf(fromTalk))).toMatch(/issued|new one|scope/i);
   });
 
   test('403 not_owner reads as an explanation, not an HTTP string', async () => {

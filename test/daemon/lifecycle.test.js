@@ -312,6 +312,8 @@ describe('startDaemon spawning the real service', () => {
       env: isolatedEnv({
         COLLABCAST_IDENTITIES: ns.identitiesPath,
         COLLABCAST_RUNTIME_ROOT: ns.runtimeRoot,
+        COLLABCAST_SOCKET_PATH: undefined, // harness exports ONE run-wide socket path and it
+        // overrides the runtime-root-derived one, putting every project on one socket
         COLLABCAST_CAPABILITY: undefined,
         COLLABCAST_NAMESPACE: undefined
       })
@@ -356,6 +358,8 @@ describe('startDaemon spawning the real service', () => {
       env: isolatedEnv({
         COLLABCAST_IDENTITIES: ns.identitiesPath,
         COLLABCAST_RUNTIME_ROOT: ns.runtimeRoot,
+        COLLABCAST_SOCKET_PATH: undefined, // harness exports ONE run-wide socket path and it
+        // overrides the runtime-root-derived one, putting every project on one socket
         COLLABCAST_CAPABILITY: undefined,
         COLLABCAST_NAMESPACE: undefined
       })

@@ -14,7 +14,7 @@
  * capability is a row, so there is nothing to mint before that) and before the HTTP transport
  * answers, so `/health` cannot report ready over an install whose operator is locked out.
  *
- * Four properties this file is careful about:
+ * Five properties this file is careful about:
  *
  *  - **Idempotent.** A usable credential is left exactly as it is. Rotating on every `start`
  *    would silently invalidate a token a running CLI, script or `COLLABCAST_CAPABILITY` export
@@ -24,6 +24,12 @@
  *    that no longer verifies is REFUSED, never replaced — auto-minting over a revoked token
  *    would turn revocation into a formality. Recovery is deliberate and requires the operator's
  *    own uid: delete the file and restart, which mints a fresh one.
+ *  - **The grant is what is checked, not the filename.** Reuse requires the resolved principal
+ *    to hold the role `operator` exactly, and the capability to carry the COMPLETE operator
+ *    scope set. Verifying only that the token is live treats the file's location as the
+ *    authority: a valid `root`, `goal_hub` or `listener` token dropped in here would satisfy
+ *    readiness, and the operator CLI would then fail at some arbitrary later command with a
+ *    confusing `scope_required` rather than failing closed at boot with the cause.
  *  - **Atomic, 0600, inside the 0700 runtime dir.** Staged in a sibling temp file and published
  *    with `link`, exactly as `ensureSecret` does. `open(file,'wx')` then `write` was already
  *    found to leave a 0-byte 0600 file behind on an interrupted boot, and that state never
@@ -123,7 +129,9 @@ function credentialFileFault(report, { problem, path, remedy, detail }) {
 }
 
 /**
- * Reads the credential already on disk and decides whether it is usable.
+ * Reads the credential already on disk and decides whether it is usable — which means both that
+ * this store honours it and that it actually grants operator authority. Any other answer throws;
+ * only an absent file returns null, because only an absent file is something to mint over.
  *
  * @param {{store:object, path:string, report:(msg:string) => void}} opts
  * @returns {{capabilityId:string, principalId:string}|null} null when the file is absent
@@ -182,6 +190,48 @@ function inspectExisting({ store, path, report }) {
       remedy: RECREATE_REMEDY
     });
   }
+
+  // Everything above this line establishes that the file is a credential this store will
+  // honour. None of it establishes WHAT that credential grants — and the file's LOCATION is
+  // not the authority, the credential's grant is. A perfectly live `root`, `goal_hub` or
+  // `listener` token dropped in here passes every check above, so a location-only reuse path
+  // boots a service whose "operator" CLI then fails at some arbitrary later command with a
+  // confusing `scope_required`, instead of failing closed at boot with the cause.
+  //
+  // Refused, never re-minted, for the same reason a revoked credential is: auto-repairing over
+  // a credential the operator deliberately placed would make deliberate placement meaningless.
+  const roleFound = verified.principal.role;
+  if (roleFound !== OPERATOR_ROLE) {
+    throw credentialFileFault(report, {
+      problem:
+        `the operator credential grants the role '${roleFound}', not '${OPERATOR_ROLE}' — ` +
+        `a credential is what it grants, not where it sits`,
+      path,
+      remedy: RECREATE_REMEDY,
+      detail: { roleFound, roleRequired: OPERATOR_ROLE }
+    });
+  }
+
+  // Completeness, not "at least some operator scopes". `issueCapability` refuses to mint a
+  // child scope the parent does not hold, so an operator credential missing `listener:consume`
+  // cannot mint a working listener through `enroll --recovery`: the break-glass path would
+  // appear to succeed and hand back a crippled capability. A narrowed operator-role token is
+  // therefore refused here, once, rather than discovered later one broken delegation at a time.
+  const scopesRequired = scopesForRole(OPERATOR_ROLE);
+  const held = new Set(verified.capability.scopes);
+  const scopesMissing = scopesRequired.filter((scope) => !held.has(scope));
+  if (scopesMissing.length > 0) {
+    throw credentialFileFault(report, {
+      problem:
+        `the operator credential holds ${scopesRequired.length - scopesMissing.length} of the ` +
+        `${scopesRequired.length} scopes the '${OPERATOR_ROLE}' role requires, missing ` +
+        `${scopesMissing.join(', ')}`,
+      path,
+      remedy: RECREATE_REMEDY,
+      detail: { scopesMissing, scopesRequired: scopesRequired.length }
+    });
+  }
+
   return { capabilityId: verified.capability.id, principalId: verified.principal.id };
 }
 

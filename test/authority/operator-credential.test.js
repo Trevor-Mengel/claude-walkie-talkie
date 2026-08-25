@@ -32,11 +32,17 @@ import {
   ensureOperatorCredential
 } from '../../src/authority/operator-credential.js';
 import { operatorCredentialPath } from '../../src/authority/paths.js';
-import { ROLE_SCOPES } from '../../src/authority/policy.js';
-import { SCOPES, getCapability, revokeCapability, verifyCapability } from '../../src/store/capabilities.js';
-import { listPrincipals, revokePrincipal } from '../../src/store/principals.js';
+import { ROLE_SCOPES, scopesForRole } from '../../src/authority/policy.js';
+import {
+  SCOPES,
+  getCapability,
+  issueCapability,
+  revokeCapability,
+  verifyCapability
+} from '../../src/store/capabilities.js';
+import { createPrincipal, listPrincipals, revokePrincipal } from '../../src/store/principals.js';
 import { MAX_TTL_SECONDS } from '../../src/store/clock.js';
-import { auditRows, createFixture, modeOf } from './helpers.js';
+import { auditRows, countRows, createFixture, modeOf } from './helpers.js';
 
 let fixture;
 
@@ -328,6 +334,162 @@ describe('a present but unusable credential', () => {
     expect(envelope).not.toContain(path);
     expect(envelope).not.toContain(runtimeRoot);
     expect(err.message).toMatch(/the file and the fix are on stderr/);
+  });
+});
+
+describe('a credential that verifies but does not grant operator authority', () => {
+  // The reuse path used to check that the file was 0600, parseable, and that its token verified
+  // live — and nothing about WHAT the token granted. That treats the file's LOCATION as the
+  // authority. A live `root`, `goal_hub` or `listener` token pasted here satisfied readiness,
+  // the service booted, and the operator CLI then failed at some arbitrary later command with
+  // `scope_required` instead of failing closed at boot with a cause.
+  //
+  // Nothing below is a fixture for the subject: the subject is the reuse DECISION, and these are
+  // the hostile inputs to it. Every capability placed here is a real, live row in the real store.
+
+  /**
+   * Puts a genuine capability of `role` at the credential path, as an operator who pasted the
+   * wrong token would. Asserts it verifies, so a test that then sees a refusal knows the refusal
+   * came from the grant check and not from a token this store would have rejected anyway.
+   */
+  function placeCapability({ store, path, role, scopes }) {
+    const placed = store.tx((tx) => {
+      const principal = createPrincipal(tx, { role, displayAlias: null });
+      const issued = issueCapability(tx, {
+        principalId: principal.id,
+        scopes: scopes ?? scopesForRole(role),
+        ttlSeconds: 3600,
+        attestationKind: 'operator_cli',
+        attestationRef: 'test.placed_by_hand'
+      });
+      return { token: issued.token, capabilityId: issued.capabilityId, principalId: principal.id };
+    });
+    writeFileSync(path, `${placed.token}\n`, { mode: 0o600 });
+    chmodSync(path, 0o600);
+
+    const live = verifyCapability(store, placed.token);
+    expect(live, 'the placed credential must itself be live').not.toBeNull();
+    expect(live.principal.role).toBe(role);
+    return placed;
+  }
+
+  for (const role of ['root', 'goal_hub', 'listener']) {
+    test(`a live '${role}' credential is refused, named, and never overwritten`, () => {
+      const { store, runtimeRoot, path } = setup();
+      const placed = placeCapability({ store, path, role });
+      const before = readFileSync(path, 'utf8');
+      const capabilitiesBefore = countRows(store, 'capability');
+
+      const { result, err, reports } = ensure({ store, runtimeRoot });
+
+      expect(result).toBeUndefined();
+      expect(err?.code).toBe('config_invalid');
+      // Actionable: found versus required, in the channel that can act on it.
+      expect(reports).toHaveLength(1);
+      expect(reports[0]).toContain(path);
+      expect(reports[0]).toContain(`'${role}'`);
+      expect(reports[0]).toContain(`'${OPERATOR_ROLE}'`);
+      expect(reports[0]).toMatch(/delete that file and restart/);
+
+      // Refused, never repaired: re-minting over a credential the operator deliberately placed
+      // would make deliberate placement meaningless, exactly as it would over a revoked one.
+      expect(readFileSync(path, 'utf8')).toBe(before);
+      expect(countRows(store, 'capability')).toBe(capabilitiesBefore);
+      expect(getCapability(store, placed.capabilityId).revokedAt).toBeNull();
+    });
+  }
+
+  test("a 'root' principal holding EVERY operator scope is still refused: the role is checked", () => {
+    // The case a scope-only check misses, and the reason the role half exists on its own. `root`
+    // is deliberately not allowed the destructive scopes by policy, so a row like this should not
+    // arise — but `issueCapability` does not enforce policy, and the reuse path must not depend
+    // on some other layer having got it right.
+    const { store, runtimeRoot, path } = setup();
+    placeCapability({ store, path, role: 'root', scopes: [...SCOPES] });
+
+    const { err, reports } = ensure({ store, runtimeRoot });
+    expect(err?.code).toBe('config_invalid');
+    expect(reports[0]).toMatch(/grants the role 'root', not 'operator'/);
+    // Not the scope complaint: this credential holds every scope there is.
+    expect(reports[0]).not.toMatch(/missing/);
+    expect(err.detail).toEqual({ roleFound: 'root', roleRequired: OPERATOR_ROLE });
+  });
+
+  test('an operator-role credential with narrowed scopes is refused: the scope set is checked', () => {
+    // The case a role-only check misses. Completeness is load-bearing: `issueCapability` refuses
+    // to mint a child scope the parent lacks, so an operator credential without `listener:consume`
+    // cannot mint a working listener through `enroll --recovery` — break-glass would appear to
+    // work and hand back a crippled capability.
+    const { store, runtimeRoot, path } = setup();
+    const narrowed = [...ROLE_SCOPES[OPERATOR_ROLE]].filter(
+      (scope) => scope !== 'listener:consume'
+    );
+    expect(narrowed).toHaveLength(ROLE_SCOPES[OPERATOR_ROLE].length - 1);
+    placeCapability({ store, path, role: OPERATOR_ROLE, scopes: narrowed });
+    const before = readFileSync(path, 'utf8');
+
+    const { result, err, reports } = ensure({ store, runtimeRoot });
+    expect(result).toBeUndefined();
+    expect(err?.code).toBe('config_invalid');
+    expect(reports[0]).toContain(path);
+    expect(reports[0]).toContain('listener:consume');
+    expect(reports[0]).toMatch(
+      new RegExp(`${narrowed.length} of the ${ROLE_SCOPES[OPERATOR_ROLE].length} scopes`)
+    );
+    // Not the role complaint: the role here is right.
+    expect(reports[0]).not.toMatch(/grants the role/);
+    expect(err.detail).toEqual({
+      scopesMissing: ['listener:consume'],
+      scopesRequired: ROLE_SCOPES[OPERATOR_ROLE].length
+    });
+    expect(readFileSync(path, 'utf8')).toBe(before);
+  });
+
+  test('a hand-placed credential with the full operator grant IS reused, untouched', () => {
+    // The other side of the fence, so the two checks cannot be satisfied by demanding this
+    // module's own provenance: a credential is judged by its grant, wherever it came from.
+    const { store, runtimeRoot, path } = setup();
+    const placed = placeCapability({ store, path, role: OPERATOR_ROLE });
+    const before = readFileSync(path, 'utf8');
+    const capabilitiesBefore = countRows(store, 'capability');
+
+    const { result, err, reports } = ensure({ store, runtimeRoot });
+    expect(err).toBeUndefined();
+    expect(reports).toEqual([]);
+    expect(result.source).toBe('file');
+    expect(result.capabilityId).toBe(placed.capabilityId);
+    expect(result.principalId).toBe(placed.principalId);
+    expect(readFileSync(path, 'utf8')).toBe(before);
+    expect(countRows(store, 'capability')).toBe(capabilitiesBefore);
+  });
+
+  test('no refusal leaks the token, on any of the grant paths', () => {
+    // The token is the whole secret. A refusal that printed it would publish the credential to
+    // every supervisor tailing stderr and into every audit row the envelope reaches.
+    const cases = [
+      { role: 'root', scopes: undefined },
+      { role: 'goal_hub', scopes: undefined },
+      { role: 'listener', scopes: undefined },
+      { role: 'root', scopes: [...SCOPES] },
+      { role: OPERATOR_ROLE, scopes: ['channel:read'] }
+    ];
+    for (const { role, scopes } of cases) {
+      const { store, runtimeRoot, path } = setup();
+      const { token } = placeCapability({ store, path, role, scopes });
+
+      const { err, reports } = ensure({ store, runtimeRoot });
+      expect(err?.code, `${role} ${scopes?.length ?? 'full'}`).toBe('config_invalid');
+      expect(reports.join('\n')).not.toContain(token);
+      const envelope = JSON.stringify({ message: err.message, detail: err.detail ?? null });
+      expect(envelope).not.toContain(token);
+      expect(envelope).not.toContain(path);
+      expect(envelope).not.toContain(runtimeRoot);
+      // And nothing was recorded about it either.
+      expect(JSON.stringify(auditRows(store))).not.toContain(token);
+
+      fixture.cleanup();
+      fixture = null;
+    }
   });
 });
 

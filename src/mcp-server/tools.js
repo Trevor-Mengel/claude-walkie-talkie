@@ -201,13 +201,36 @@ const SCHEMAS = {
       'are asking for so the operator can see what they are approving.',
     inputSchema: {
       type: 'object',
+      // All three are required: an enrollment request that does not say what it is asking for
+      // cannot be described to the operator, so the approval hook refuses it before anything
+      // is shown or contacted. Advertising them as optional invited exactly that call.
+      required: ['namespace', 'role', 'scopes'],
       properties: {
-        namespace: { type: 'string', description: 'The channel namespace you are joining.' },
-        role: { type: 'string', description: 'The role being requested, e.g. listener.' },
+        namespace: {
+          type: 'string',
+          description:
+            'The channel namespace you are joining: the `namespace` field of ' +
+            '.collabcast/config.json at the project root.'
+        },
+        role: {
+          type: 'string',
+          // Literal rather than imported from `../authority/policy.js`: that module reaches
+          // the store, which loads a native sqlite binding this client has no business
+          // requiring. `test/mcp-server/enroll-contract.test.js` asserts this enum is exactly
+          // `ENROLLABLE_ROLES`, so the duplication cannot drift silently.
+          enum: ['root'],
+          description:
+            'The role being requested. Operator approval may enroll root and nothing else; ' +
+            'narrower roles (goal_hub, listener) are delegated by an already-enrolled root ' +
+            'rather than enrolled, and asking for one here is refused with forbidden.'
+        },
         scopes: {
           type: 'array',
           items: { type: 'string' },
-          description: 'The scopes being requested, e.g. ["channel:read","channel:publish"].'
+          minItems: 1,
+          description:
+            'The scopes being requested, e.g. ["channel:read","channel:publish"]. Ask for the ' +
+            "subset you need: a scope outside the role's allowlist is refused."
         },
         ttlSeconds: { type: 'number', minimum: 1 }
       },
@@ -259,22 +282,6 @@ function errorResult(tool, err, hint) {
   const guidance = hint ?? HINTS[err.code];
   if (guidance) payload.hint = guidance;
   return failure(payload);
-}
-
-/**
- * The single `permit_required` payload builder. v0.2 hand-picked four fields in collabcast_talk and
- * spread the whole body in collabcast_reply, so the same condition produced two different shapes;
- * both callers now go through here, so the shapes are identical by construction.
- *
- * @param {import('../identity/errors.js').CollabcastError} err
- */
-function permitRequiredResult(err) {
-  return text({
-    status: 'permit_required',
-    code: 'permit_required',
-    message: err.message,
-    detail: err.detail ?? null
-  });
 }
 
 function requireString(args, key, tool) {
@@ -406,24 +413,14 @@ export function buildTools({ api, capability, namespace } = {}) {
         }
         case 'collabcast_talk': {
           const body = requireString(args, 'body', name);
-          try {
-            return text(
-              await api.post({ body, type: args.type ?? 'broadcast', replyTo: args.reply_to })
-            );
-          } catch (err) {
-            if (err?.code === 'permit_required') return permitRequiredResult(err);
-            throw err;
-          }
+          return text(
+            await api.post({ body, type: args.type ?? 'broadcast', replyTo: args.reply_to })
+          );
         }
         case 'collabcast_reply': {
           const replyTo = requireString(args, 'reply_to', name);
           const body = requireString(args, 'body', name);
-          try {
-            return text(await api.post({ body, type: 'reply', replyTo }));
-          } catch (err) {
-            if (err?.code === 'permit_required') return permitRequiredResult(err);
-            throw err;
-          }
+          return text(await api.post({ body, type: 'reply', replyTo }));
         }
         case 'collabcast_edit': {
           const id = requireString(args, 'id', name);

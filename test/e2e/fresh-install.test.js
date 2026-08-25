@@ -29,6 +29,13 @@ import { fileURLToPath } from 'node:url';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 import { assertDisposable, isolatedEnv } from '../helpers/isolation.js';
 import { OPERATOR_CREDENTIAL_FILENAME } from '../../src/authority/paths.js';
+import { ROLE_SCOPES } from '../../src/authority/policy.js';
+// Used by exactly one test below, to construct an input the shipped CLI deliberately cannot: a
+// narrowed `operator` capability. See the comment on that test.
+import { storeDir } from '../../src/config/schema.js';
+import { openStore } from '../../src/store/db.js';
+import { createPrincipal } from '../../src/store/principals.js';
+import { issueCapability } from '../../src/store/capabilities.js';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'collabcast.js');
 const NAMESPACE = 'cc-fresh';
@@ -59,6 +66,17 @@ function freshProject() {
     COLLABCAST_IDENTITIES: identities,
     COLLABCAST_RUNTIME_ROOT: join(root, '.collabcast', 'run'),
     // The harness exports these; a project resolved from cwd must not inherit another one's.
+    //
+    // COLLABCAST_SOCKET_PATH is the load-bearing one and it was missing. The harness exports a
+    // SINGLE socket path for the whole run (test/helpers/isolation.js:170) and propagates it into
+    // spawned children (:235), and an explicit socket path overrides the one derived from
+    // COLLABCAST_RUNTIME_ROOT. So every project here shared one socket despite having distinct
+    // runtime roots: one project's daemon answered another project's `status`, `startDaemon` took
+    // its `if (current.running) return current` short-circuit, and `start` exited 0 without ever
+    // booting — so the credential-grant check never ran. `readHealth`'s namespace guard could not
+    // catch it either, because every project in this file uses the same NAMESPACE. Clearing it
+    // lets the socket resolve per project, under the runtime root above.
+    COLLABCAST_SOCKET_PATH: undefined,
     COLLABCAST_PROJECT_ROOT: undefined,
     COLLABCAST_NAMESPACE: undefined,
     COLLABCAST_CAPABILITY: undefined
@@ -285,6 +303,179 @@ describe('a credential the service will not honour', () => {
       // Same human, so the same principal: a new one per recovery would scatter their identity.
       expect(recovered.principalId).toBe(self.principalId);
       expect((await project.cli(['talk', 'back in'])).code).toBe(0);
+    },
+    40000
+  );
+});
+
+describe('a credential that verifies but does not grant operator authority', () => {
+  // For the whole of v0.3 the reuse path asked only whether the token was live, never what it
+  // granted — so the file's LOCATION was the authority instead of the credential's grant. A real
+  // `listener` or `goal_hub` token pasted into `operator.cred` booted a healthy service with an
+  // operator CLI that failed at some arbitrary later command with `scope_required`.
+  //
+  // The first two tokens below are not hand-forged and not written by a helper: they come out of
+  // the shipped `collabcast enroll --recovery`, which is exactly how an operator ends up holding
+  // one, and are then pasted where the operator's own credential goes. The last two are inputs no
+  // command can produce, and `mintIntoStore` explains itself.
+
+  /** A real delegated token for `role`, minted through the shipped break-glass path. */
+  async function recoveryToken(project, role) {
+    const enroll = await project.cli(['enroll', '--recovery', '--role', role, '--json']);
+    expect(enroll.code, enroll.stderr).toBe(0);
+    const issued = JSON.parse(enroll.stdout);
+    expect(issued.role).toBe(role);
+    expect(issued.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    return issued.token;
+  }
+
+  for (const role of ['listener', 'goal_hub']) {
+    it(
+      `fails the boot closed when operator.cred holds a live '${role}' token`,
+      async () => {
+        const project = await install();
+        const token = await recoveryToken(project, role);
+        expect((await project.cli(['stop'])).code).toBe(0);
+
+        writeFileSync(project.credentialPath, `${token}\n`, { mode: 0o600 });
+        chmodSync(project.credentialPath, 0o600);
+
+        const start = await project.cli(['start']);
+        expect(start.code, 'a boot over a non-operator credential must fail').not.toBe(0);
+        // Actionable, in the channel that can act: the path, the role found, the role required.
+        expect(start.stderr).toContain(project.credentialPath);
+        expect(start.stderr).toContain(`'${role}'`);
+        expect(start.stderr).toContain("'operator'");
+        expect(start.stderr).toMatch(/delete that file and restart/);
+        // And never the bearer itself: `start`'s output is what a supervisor captures.
+        expect(start.stdout).not.toContain(token);
+        expect(start.stderr).not.toContain(token);
+
+        // Readiness still means "the operator can act", so nothing may be answering.
+        const status = await project.cli(['status']);
+        expect(status.stdout).toMatch(/is not answering/);
+
+        // Refused, not repaired: a credential the operator placed is never minted over.
+        expect(readFileSync(project.credentialPath, 'utf8')).toBe(`${token}\n`);
+        expect(mode(project.credentialPath)).toBe('600');
+
+        // The documented recovery, and it is the only one.
+        rmSync(project.credentialPath);
+        expect((await project.cli(['start'])).code, 'usable again once removed').toBe(0);
+        expect((await whoami(project)).role).toBe('operator');
+      },
+      40000
+    );
+  }
+
+  /**
+   * Mints a live capability straight into the project's store and returns its token.
+   *
+   * Two of the inputs below cannot come from the shipped CLI, by design: `operator` is not a
+   * delegable role, and `root` is not either, so no command produces a narrowed operator
+   * capability or a root capability holding every scope. They go in through the store instead.
+   * That does not weaken this file's rule — the rule is that nothing here may create the artifact
+   * PRODUCTION is supposed to create, and these create deliberately broken ones, exactly as the
+   * unparseable-credential case above does. The service is stopped first, so nothing races.
+   */
+  function mintIntoStore(project, { role, scopes, ref }) {
+    const store = openStore({
+      path: join(storeDir(project.root), 'collabcast.db'),
+      namespace: NAMESPACE
+    });
+    try {
+      return store.tx((tx) => {
+        const principal = createPrincipal(tx, { role, displayAlias: null });
+        return issueCapability(tx, {
+          principalId: principal.id,
+          scopes,
+          ttlSeconds: 3600,
+          attestationKind: 'operator_cli',
+          attestationRef: ref
+        }).token;
+      });
+    } finally {
+      store.close();
+    }
+  }
+
+  it(
+    "fails the boot closed when operator.cred holds a 'root' token that has every scope",
+    async () => {
+      // The case a scope-only check waves through, so this is the one that proves the ROLE half
+      // gates the boot on its own. The three CLI-minted cases above are caught by either half,
+      // which is why neither of them could prove the two checks are independent.
+      const project = await install();
+      const operatorToken = readFileSync(project.credentialPath, 'utf8').trim();
+      expect((await project.cli(['stop'])).code).toBe(0);
+
+      const token = mintIntoStore(project, {
+        role: 'root',
+        scopes: [...ROLE_SCOPES.operator],
+        ref: 'test.root_with_every_scope'
+      });
+      writeFileSync(project.credentialPath, `${token}\n`, { mode: 0o600 });
+      chmodSync(project.credentialPath, 0o600);
+
+      const start = await project.cli(['start']);
+      expect(start.code, 'a boot over a root credential must fail').not.toBe(0);
+      expect(start.stderr).toContain(project.credentialPath);
+      expect(start.stderr).toMatch(/grants the role 'root', not 'operator'/);
+      // It holds every scope, so nothing may be reported as missing.
+      expect(start.stderr).not.toMatch(/missing/);
+      expect(start.stderr).toMatch(/delete that file and restart/);
+      expect(start.stderr).not.toContain(token);
+      expect(start.stderr).not.toContain(operatorToken);
+      expect(start.stdout).not.toContain(token);
+
+      expect((await project.cli(['status'])).stdout).toMatch(/is not answering/);
+      expect(readFileSync(project.credentialPath, 'utf8')).toBe(`${token}\n`);
+      expect(mode(project.credentialPath)).toBe('600');
+
+      rmSync(project.credentialPath);
+      expect((await project.cli(['start'])).code, 'usable again once removed').toBe(0);
+      expect((await whoami(project)).role).toBe('operator');
+    },
+    40000
+  );
+
+  it(
+    'fails the boot closed when operator.cred holds an operator token with narrowed scopes',
+    async () => {
+      // The case a role-only check waves through, so this is the one that proves the SCOPE half
+      // gates the boot on its own. Completeness is load-bearing: `issueCapability` refuses a
+      // child scope the parent lacks, so an operator credential without `listener:consume` cannot
+      // mint a working listener through `enroll --recovery` — break-glass would look like it
+      // worked and then hand back a crippled capability.
+      const project = await install();
+      const operatorToken = readFileSync(project.credentialPath, 'utf8').trim();
+      expect((await project.cli(['stop'])).code).toBe(0);
+
+      const token = mintIntoStore(project, {
+        role: 'operator',
+        scopes: [...ROLE_SCOPES.operator].filter((scope) => scope !== 'listener:consume'),
+        ref: 'test.narrowed_operator'
+      });
+      writeFileSync(project.credentialPath, `${token}\n`, { mode: 0o600 });
+      chmodSync(project.credentialPath, 0o600);
+
+      const start = await project.cli(['start']);
+      expect(start.code, 'a boot over a narrowed operator credential must fail').not.toBe(0);
+      expect(start.stderr).toContain(project.credentialPath);
+      expect(start.stderr).toContain('listener:consume');
+      // The role is right here, so the refusal must be about the grant's completeness.
+      expect(start.stderr).not.toMatch(/grants the role/);
+      expect(start.stderr).toMatch(/delete that file and restart/);
+      expect(start.stderr).not.toContain(token);
+      expect(start.stderr).not.toContain(operatorToken);
+      expect(start.stdout).not.toContain(token);
+
+      expect((await project.cli(['status'])).stdout).toMatch(/is not answering/);
+      expect(readFileSync(project.credentialPath, 'utf8')).toBe(`${token}\n`);
+
+      rmSync(project.credentialPath);
+      expect((await project.cli(['start'])).code, 'usable again once removed').toBe(0);
+      expect((await whoami(project)).role).toBe('operator');
     },
     40000
   );
