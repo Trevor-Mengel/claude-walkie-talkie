@@ -1,16 +1,14 @@
 import { clientForProject } from './client.js';
 import { renderMessages } from './render.js';
 
-export async function readCommand(opts) {
-  const client = clientForProject(process.cwd());
+export async function readCommand(opts = {}) {
+  const { api } = clientForProject();
   const limit = Number(opts.limit) || 5;
-  let response;
-  if (opts.since) {
-    response = await client.since(opts.since);
-  } else {
-    response = await client.latest(limit, Boolean(opts.includeArchived));
-  }
-  let messages = response.messages;
-  if (opts.type) messages = messages.filter((m) => m.type === opts.type);
-  console.log(renderMessages(messages));
+  const response = opts.since
+    ? await api.since(opts.since)
+    : await api.latest(limit, Boolean(opts.includeArchived));
+  const messages = opts.type
+    ? response.messages.filter((m) => m.type === opts.type)
+    : response.messages;
+  process.stdout.write(`${renderMessages(messages)}\n`);
 }

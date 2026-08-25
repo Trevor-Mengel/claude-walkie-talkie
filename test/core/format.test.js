@@ -26,7 +26,7 @@ describe('format', () => {
     const block = formatMessage(SAMPLE);
     expect(block).toMatch(/^## 📡 demo-builder → @slide-designer\n/);
     expect(block).toContain(
-      '<!-- walkie:msg id=01J7QXP9R5K8VYZAB3 type=question from=cs_abc123 from-tool=claude-code timestamp=2026-05-14T15:32:00.000Z mentions=slide-designer -->'
+      '<!-- walkie:msg id=01J7QXP9R5K8VYZAB3 type=question from=cs_abc123 from-tool=claude-code timestamp=2026-05-14T15:32:00.000Z mentions=slide-designer git-branch=main git-hash=a3f2c1d git-user-name=Trevor git-user-email=trevor@abstractlabs -->'
     );
     expect(block).toContain('**Time:** 2026-05-14T15:32:00.000Z');
     expect(block).toContain('**Git:** main @ a3f2c1d (trevor@abstractlabs)');

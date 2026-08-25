@@ -1,47 +1,69 @@
-// src/cli/client.js
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+/**
+ * The operator CLI's side of the transport.
+ *
+ * The operator is a principal like any other. v0.2's CLI asserted `fromSessionId: 'operator'`
+ * in request bodies — a string anyone could send — and read nothing but a port file. Here the
+ * CLI authenticates with a real capability read from `<runtimeRoot>/operator.cred` (0600) and
+ * connects over the namespace's Unix socket.
+ */
 
-export function clientForProject(projectRoot) {
-  const portFile = join(projectRoot, '.walkie-talkie', 'server.port');
-  if (!existsSync(portFile)) {
-    throw new Error('daemon is not running (no server.port file). Run `walkie start` first.');
-  }
-  const port = Number(readFileSync(portFile, 'utf8').trim());
-  const base = `http://127.0.0.1:${port}`;
-  async function req(method, path, body) {
-    const res = await fetch(`${base}${path}`, {
-      method,
-      headers: body ? { 'content-type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined
-    });
-    const text = await res.text();
-    let parsed;
-    try { parsed = JSON.parse(text); } catch { parsed = text; }
-    if (!res.ok) {
-      const err = new Error(`HTTP ${res.status}: ${typeof parsed === 'string' ? parsed : parsed.error || parsed.status}`);
-      err.status = res.status;
-      err.body = parsed;
-      throw err;
-    }
-    return parsed;
-  }
+import { createApiClient } from '../client/api.js';
+import { resolveClientContext } from '../client/context.js';
+import { credentialDrift, readOperatorCredential } from '../client/credentials.js';
+import { openEventStream } from '../client/events.js';
+
+/**
+ * Context + endpoint only, with no credential. Used by commands that either need no authority
+ * (`GET /health`) or need to report on the local installation.
+ *
+ * @param {{cwd?:string, env?:Record<string,string|undefined>, runtimeRoot?:string}} [opts]
+ */
+export function contextForProject({ cwd = process.cwd(), env = process.env, runtimeRoot } = {}) {
+  return resolveClientContext({ cwd, env, runtimeRoot });
+}
+
+/**
+ * An authenticated client for the operator principal.
+ *
+ * @param {{cwd?:string, env?:Record<string,string|undefined>, runtimeRoot?:string}} [opts]
+ * @returns {{context:object, api:object, claimed:Record<string,unknown>|null,
+ *   events:(onEvent:Function,onError?:Function)=>Promise<{close:()=>void}>}}
+ */
+export function clientForProject({ cwd = process.cwd(), env = process.env, runtimeRoot } = {}) {
+  const context = resolveClientContext({ cwd, env, runtimeRoot });
+  const credential = readOperatorCredential(context.runtimeRoot);
+  const api = createApiClient({
+    endpoint: context.endpoint,
+    namespace: context.namespace,
+    mode: context.mode,
+    token: () => credential.token
+  });
   return {
-    base,
-    health: () => req('GET', '/health'),
-    latest: (limit = 5, includeArchived = false) =>
-      req('GET', `/channel/latest?limit=${limit}&include_archived=${includeArchived}`),
-    since: (id) => req('GET', `/channel/since/${id}`),
-    message: (id) => req('GET', `/channel/message/${id}`),
-    post: (data) => req('POST', '/channel/message', data),
-    edit: (id, data) => req('PATCH', `/channel/message/${id}`, data),
-    archive: (id, data) => req('POST', `/channel/message/${id}/archive`, data),
-    sessions: () => req('GET', '/sessions'),
-    join: (data) => req('POST', '/sessions/join', data),
-    rename: (id, alias) => req('POST', `/sessions/${id}/rename`, { alias }),
-    invite: (alias) => req('POST', '/sessions/invite', { alias }),
-    listPermits: () => req('GET', '/permits'),
-    grantPermit: (data) => req('POST', '/permits', data),
-    revokePermit: (sessionId) => req('DELETE', `/permits/${sessionId}`)
+    context,
+    api,
+    claimed: credential.claimed,
+    events: (onEvent, onError) =>
+      openEventStream({
+        endpoint: context.endpoint,
+        token: credential.token,
+        context: { namespace: context.namespace, mode: context.mode },
+        onEvent,
+        onError
+      })
   };
+}
+
+/**
+ * `GET /self` plus a drift note. The server is authoritative about role, scopes and expiry; a
+ * credential document that disagrees is stale and worth saying out loud.
+ *
+ * @param {{api:object, claimed:Record<string,unknown>|null, context:object}} client
+ */
+export async function resolveSelf({ api, claimed, context }) {
+  const self = await api.self();
+  const drift = credentialDrift(claimed, self);
+  if (claimed?.namespace !== undefined && claimed.namespace !== context.namespace) {
+    drift.push('namespace');
+  }
+  return { self, drift: drift.sort() };
 }

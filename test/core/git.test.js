@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gitMetadata } from '../../src/core/git.js';
+import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
 function git(args, cwd) {
   execFileSync('git', args, { cwd, stdio: ['ignore', 'ignore', 'ignore'] });
@@ -14,8 +14,8 @@ describe('git metadata', () => {
   let nonRepoDir;
 
   beforeAll(() => {
-    repoDir = mkdtempSync(join(tmpdir(), 'walkie-git-'));
-    nonRepoDir = mkdtempSync(join(tmpdir(), 'walkie-nogit-'));
+    repoDir = createFixtureDir('collabcast-git-');
+    nonRepoDir = createFixtureDir('collabcast-nogit-');
     git(['init', '-q', '-b', 'main'], repoDir);
     git(['config', 'user.email', 'tester@example.com'], repoDir);
     git(['config', 'user.name', 'Tester'], repoDir);
