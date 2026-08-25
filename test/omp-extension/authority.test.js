@@ -53,11 +53,11 @@ describe('authority: socket exchange', () => {
     const server = await stub({ respond: () => ({ code: CODE }) });
     const result = await requestEnrollmentCode({
       socketPath: server.socketPath,
-      payload: { op: 'enroll.request', namespace: 'walkie-talkie' }
+      payload: { op: 'enroll.request', namespace: 'collabcast' }
     });
     expect(result).toEqual({ code: CODE });
     expect(server.state.connections).toBe(1);
-    expect(server.state.requests).toEqual([{ op: 'enroll.request', namespace: 'walkie-talkie' }]);
+    expect(server.state.requests).toEqual([{ op: 'enroll.request', namespace: 'collabcast' }]);
   });
 
   test('missing socket path fails closed as config_invalid without connecting', async () => {

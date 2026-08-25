@@ -1,5 +1,5 @@
 /**
- * The single error vocabulary for the walkie authority layer.
+ * The single error vocabulary for the collabcast authority layer.
  *
  * Every layer (store, identity, config, transport, routes, MCP, CLI) surfaces failures as
  * `{ error: { code, message, detail? } }`. `code` is drawn from ERROR_CODES; anything else is a
@@ -35,7 +35,7 @@ export const ERROR_CODES = Object.freeze([
   'internal'
 ]);
 
-export class WalkieError extends Error {
+export class CollabcastError extends Error {
   /**
    * @param {string} code - one of ERROR_CODES
    * @param {string} message - human-readable, secret-free
@@ -44,9 +44,9 @@ export class WalkieError extends Error {
   constructor(code, message, detail) {
     super(message);
     if (!ERROR_CODES.includes(code)) {
-      throw new Error(`unknown walkie error code: ${String(code)}`);
+      throw new Error(`unknown collabcast error code: ${String(code)}`);
     }
-    this.name = 'WalkieError';
+    this.name = 'CollabcastError';
     this.code = code;
     if (detail !== undefined) this.detail = detail;
   }
@@ -63,15 +63,15 @@ export class WalkieError extends Error {
  * @param {string} code
  * @param {string} message
  * @param {object} [detail]
- * @returns {WalkieError}
+ * @returns {CollabcastError}
  */
-export function walkieError(code, message, detail) {
-  return new WalkieError(code, message, detail);
+export function collabcastError(code, message, detail) {
+  return new CollabcastError(code, message, detail);
 }
 
 /** @param {unknown} value */
-export function isWalkieError(value) {
-  return value instanceof WalkieError;
+export function isCollabcastError(value) {
+  return value instanceof CollabcastError;
 }
 
 /**

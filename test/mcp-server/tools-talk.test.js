@@ -1,4 +1,4 @@
-// `walkie_talk` — posting, and what authorises it.
+// `collabcast_talk` — posting, and what authorises it.
 //
 // The central assertion here is INVERTED from v0.2. That file opened with:
 //
@@ -23,10 +23,10 @@ import { spawnMockClient } from '../helpers/mock-mcp-client.js';
 
 const ULID = /^[0-9A-Z]{26}$/;
 
-describe('walkie_talk', () => {
+describe('collabcast_talk', () => {
   test('a capability holding channel:publish posts immediately, and keeps posting', async () => {
     const stack = await createStack({
-      namespace: 'walkie-talk1',
+      namespace: 'collabcast-talk1',
       roles: ['root', { name: 'hub', role: 'goal_hub' }]
     });
     const client = await spawnMockClient({
@@ -57,7 +57,7 @@ describe('walkie_talk', () => {
 
   test('a capability WITHOUT channel:publish is refused scope_required', async () => {
     const stack = await createStack({
-      namespace: 'walkie-talk2',
+      namespace: 'collabcast-talk2',
       roles: [
         'root',
         { name: 'reader', role: 'listener', scopes: ['channel:read', 'self:cursor'] }
@@ -68,7 +68,7 @@ describe('walkie_talk', () => {
       capability: stack.tokens.reader
     });
     try {
-      const attempt = await client.callRaw('walkie_talk', { body: 'let me in' });
+      const attempt = await client.callRaw('collabcast_talk', { body: 'let me in' });
       expect(attempt.isError).toBe(true);
       expect(attempt.payload.code).toBe('scope_required');
       expect(attempt.payload.detail).toEqual({ scope: 'channel:publish' });
@@ -95,7 +95,7 @@ describe('walkie_talk', () => {
 
   test('a session cannot self-authorise by restating v0.2 authority fields', async () => {
     const stack = await createStack({
-      namespace: 'walkie-talk3',
+      namespace: 'collabcast-talk3',
       roles: [
         'root',
         { name: 'reader', role: 'listener', scopes: ['channel:read', 'self:cursor'] }
@@ -108,7 +108,7 @@ describe('walkie_talk', () => {
     try {
       // `autonomous: false` was v0.2's permit bypass. It is rejected at the tool boundary now,
       // before a request is even formed.
-      const bypass = await client.callRaw('walkie_talk', {
+      const bypass = await client.callRaw('collabcast_talk', {
         body: 'trust me',
         autonomous: false
       });
@@ -116,7 +116,7 @@ describe('walkie_talk', () => {
       expect(bypass.payload.code).toBe('invalid_request');
       expect(bypass.payload.detail).toEqual({ rejected: ['autonomous'] });
 
-      const forged = await client.callRaw('walkie_talk', {
+      const forged = await client.callRaw('collabcast_talk', {
         body: 'trust me',
         fromSessionId: stack.principals.root.principalId,
         fromAlias: 'root'
@@ -136,7 +136,7 @@ describe('walkie_talk', () => {
 
   test('surfaces unresolved-mention warnings', async () => {
     const stack = await createStack({
-      namespace: 'walkie-talk4',
+      namespace: 'collabcast-talk4',
       roles: ['root', { name: 'hub', role: 'goal_hub' }]
     });
     const client = await spawnMockClient({
@@ -167,7 +167,7 @@ describe('walkie_talk', () => {
 
   test('type and reply_to are honoured; an unknown type is refused', async () => {
     const stack = await createStack({
-      namespace: 'walkie-talk5',
+      namespace: 'collabcast-talk5',
       roles: ['root', { name: 'hub', role: 'goal_hub' }]
     });
     const client = await spawnMockClient({
@@ -184,7 +184,7 @@ describe('walkie_talk', () => {
       expect(fetched.body.message.type).toBe('reply');
       expect(fetched.body.message.replyTo).toBe(question.id);
 
-      const bogus = await client.callRaw('walkie_talk', { body: 'x', type: 'decree' });
+      const bogus = await client.callRaw('collabcast_talk', { body: 'x', type: 'decree' });
       expect(bogus.isError).toBe(true);
       expect(bogus.payload.code).toBe('invalid_request');
     } finally {

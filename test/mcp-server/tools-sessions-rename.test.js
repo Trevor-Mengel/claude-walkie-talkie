@@ -1,11 +1,11 @@
-// `walkie_sessions` / `walkie_rename` — the principal roster and the alias claim.
+// `collabcast_sessions` / `collabcast_rename` — the principal roster and the alias claim.
 //
 // The tool NAMES are preserved for compatibility, but what they talk to changed completely, so
 // both v0.2 assertions had to be rewritten rather than adjusted:
 //
 //   - v0.2: `parsed.active` contained an entry whose `tool` was `'claude-code'`, because the
 //     child had declared that at `POST /sessions/join`. There is no session table and no
-//     self-declared tool; `walkie_sessions` returns `{ principals: [...] }` off `GET /principals`,
+//     self-declared tool; `collabcast_sessions` returns `{ principals: [...] }` off `GET /principals`,
 //     and `tool` is derived from the role by the server.
 //   - v0.2: rename "updates this session alias" via `POST /sessions/:id/rename`, which took the
 //     target from the path — so any session could rename any other — and, on collision, renamed
@@ -32,9 +32,9 @@ async function harness(namespace, extraRoles = []) {
   return { stack, client };
 }
 
-describe('walkie_sessions', () => {
+describe('collabcast_sessions', () => {
   test('returns the principal roster, including self, with roles and aliases', async () => {
-    const { stack, client } = await harness('walkie-sr1', [
+    const { stack, client } = await harness('collabcast-sr1', [
       { name: 'listener', role: 'listener' }
     ]);
     try {
@@ -64,11 +64,11 @@ describe('walkie_sessions', () => {
   }, 20000);
 
   test('a session cannot declare its own tool; the server derives it from the role', async () => {
-    const { stack, client } = await harness('walkie-sr2');
+    const { stack, client } = await harness('collabcast-sr2');
     try {
-      // v0.2 read this straight off `WALKIE_TOOL`. Setting it now changes nothing.
+      // v0.2 read this straight off `COLLABCAST_TOOL`. Setting it now changes nothing.
       const declaring = await spawnMockClient({
-        env: stack.childEnv({ WALKIE_TOOL: 'claude-code', WALKIE_ALIAS: 'impostor' }),
+        env: stack.childEnv({ COLLABCAST_TOOL: 'claude-code', COLLABCAST_ALIAS: 'impostor' }),
         capability: stack.tokens.hub
       });
       try {
@@ -87,9 +87,9 @@ describe('walkie_sessions', () => {
   }, 25000);
 });
 
-describe('walkie_rename', () => {
+describe('collabcast_rename', () => {
   test('renames this principal and nobody else', async () => {
-    const { stack, client } = await harness('walkie-sr3', [
+    const { stack, client } = await harness('collabcast-sr3', [
       { name: 'other', role: 'goal_hub' }
     ]);
     try {
@@ -113,7 +113,7 @@ describe('walkie_rename', () => {
   }, 20000);
 
   test('an alias already in use is a 409 conflict and the incumbent keeps it', async () => {
-    const { stack, client } = await harness('walkie-sr4', [
+    const { stack, client } = await harness('collabcast-sr4', [
       { name: 'other', role: 'goal_hub' }
     ]);
     const other = await spawnMockClient({
@@ -123,7 +123,7 @@ describe('walkie_rename', () => {
     try {
       await client.rename('taken');
 
-      const attempt = await other.callRaw('walkie_rename', { alias: 'taken' });
+      const attempt = await other.callRaw('collabcast_rename', { alias: 'taken' });
       expect(attempt.isError).toBe(true);
       expect(attempt.payload.code).toBe('conflict');
       expect(attempt.payload.hint).toMatch(/will not be taken from them/);
@@ -151,7 +151,7 @@ describe('walkie_rename', () => {
 
   test('renaming is gated on self:alias, so a capability without it is refused', async () => {
     const stack = await createStack({
-      namespace: 'walkie-sr5',
+      namespace: 'collabcast-sr5',
       roles: [
         'root',
         { name: 'noAlias', role: 'goal_hub', scopes: ['channel:read', 'channel:publish'] }
@@ -162,7 +162,7 @@ describe('walkie_rename', () => {
       capability: stack.tokens.noAlias
     });
     try {
-      const attempt = await client.callRaw('walkie_rename', { alias: 'nope' });
+      const attempt = await client.callRaw('collabcast_rename', { alias: 'nope' });
       expect(attempt.isError).toBe(true);
       expect(attempt.payload.code).toBe('scope_required');
       expect(attempt.payload.detail).toEqual({ scope: 'self:alias' });
@@ -172,7 +172,7 @@ describe('walkie_rename', () => {
   }, 20000);
 
   test('an alias claimed by rename becomes a resolvable @mention target', async () => {
-    const { stack, client } = await harness('walkie-sr6');
+    const { stack, client } = await harness('collabcast-sr6');
     try {
       await client.rename('slide-designer');
       const posted = await stack.request('POST', '/channel/message', {

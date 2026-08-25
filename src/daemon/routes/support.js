@@ -1,4 +1,4 @@
-import { walkieError, isWalkieError, ERROR_CODES } from '../../identity/errors.js';
+import { collabcastError, isCollabcastError, ERROR_CODES } from '../../identity/errors.js';
 import { listPrincipals } from '../../store/principals.js';
 import { parseMentions } from '../../core/mentions.js';
 
@@ -8,7 +8,7 @@ import { parseMentions } from '../../core/mentions.js';
  * The one rule this file exists to enforce: **nothing on a write path is read
  * from the request except content.** Author identity, alias, tool, timestamp,
  * git provenance and mention targets are all derived here from
- * `req.walkie.principal` and the server clock. v0.2 took every one of those
+ * `req.collabcast.principal` and the server clock. v0.2 took every one of those
  * from the request body, which is why any caller could post as anyone.
  */
 
@@ -16,7 +16,7 @@ import { parseMentions } from '../../core/mentions.js';
  * Normalises a thrown value into the wire vocabulary before it reaches the
  * transport's error middleware.
  *
- * The store throws `StoreError`, not `WalkieError`. Both carry the same
+ * The store throws `StoreError`, not `CollabcastError`. Both carry the same
  * `{ code, message, detail }` shape and draw `code` from the same list, but a
  * class check in the transport would map every store failure to 500 — an alias
  * collision would read as a server fault. Translate once, here, at the boundary
@@ -27,10 +27,10 @@ import { parseMentions } from '../../core/mentions.js';
  * @param {unknown} err
  * @returns {unknown}
  */
-export function toWalkie(err) {
-  if (isWalkieError(err)) return err;
+export function toCollabcast(err) {
+  if (isCollabcastError(err)) return err;
   if (err && typeof err.code === 'string' && ERROR_CODES.includes(err.code)) {
-    return walkieError(err.code, err.message, err.detail);
+    return collabcastError(err.code, err.message, err.detail);
   }
   return err;
 }
@@ -38,7 +38,7 @@ export function toWalkie(err) {
 /** Wraps an async express handler so every rejection is normalised. */
 export function handler(fn) {
   return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch((err) => next(toWalkie(err)));
+    Promise.resolve(fn(req, res, next)).catch((err) => next(toCollabcast(err)));
   };
 }
 
@@ -178,11 +178,11 @@ export function addressesPrincipal(principal, message) {
 export function readBody(body, allowed) {
   if (body === undefined || body === null) return {};
   if (typeof body !== 'object' || Array.isArray(body)) {
-    throw walkieError('invalid_request', 'request body must be a JSON object');
+    throw collabcastError('invalid_request', 'request body must be a JSON object');
   }
   const unknown = Object.keys(body).filter((k) => !allowed.includes(k));
   if (unknown.length > 0) {
-    throw walkieError('invalid_request', 'unknown fields in request body', { fields: unknown });
+    throw collabcastError('invalid_request', 'unknown fields in request body', { fields: unknown });
   }
   return body;
 }
@@ -197,7 +197,7 @@ export function readLimit(raw, fallback, max) {
   if (raw === undefined) return fallback;
   const n = Number(raw);
   if (!Number.isInteger(n) || n <= 0) {
-    throw walkieError('invalid_request', 'limit must be a positive integer');
+    throw collabcastError('invalid_request', 'limit must be a positive integer');
   }
   return Math.min(n, max);
 }
@@ -206,5 +206,5 @@ export function readLimit(raw, fallback, max) {
 export function readFlag(raw) {
   if (raw === undefined || raw === 'false') return false;
   if (raw === 'true') return true;
-  throw walkieError('invalid_request', 'boolean query parameters accept only true or false');
+  throw collabcastError('invalid_request', 'boolean query parameters accept only true or false');
 }

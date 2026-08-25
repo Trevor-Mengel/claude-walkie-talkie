@@ -1,4 +1,4 @@
-// `walkie talk`, driven as a real subprocess against a real service.
+// `collabcast talk`, driven as a real subprocess against a real service.
 //
 // Both v0.2 properties survive in spirit, and one of them had to change shape:
 //
@@ -12,7 +12,7 @@
 //     and inverts the flag half: invitations are gone, so there is no invite to skip and
 //     `--no-invite` must not exist. An unresolved mention is now information, not a prompt.
 //
-// The first test boots the service as a real `walkie-svc` child process rather than in-process:
+// The first test boots the service as a real `collabcast-svc` child process rather than in-process:
 // two real processes and a Unix socket between them is the shape an operator actually runs, and
 // nothing else in this file's slice covers `daemon-entry.js` coming up from its cwd alone.
 
@@ -23,9 +23,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStack } from '../helpers/stack.js';
 
-const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'walkie.js');
+const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'collabcast.js');
 
-function walkie(args, { cwd, env }) {
+function collabcast(args, { cwd, env }) {
   return new Promise((resolve) => {
     execFile(process.execPath, [CLI, ...args], { cwd, env, encoding: 'utf8' }, (err, stdout, stderr) => {
       resolve({ code: err?.code ?? 0, stdout, stderr });
@@ -38,13 +38,13 @@ async function harness(namespace, opts = {}) {
   stack.writeCredential('operator');
   return {
     stack,
-    run: (args) => walkie(args, { cwd: stack.canonicalRoot, env: stack.childEnv() })
+    run: (args) => collabcast(args, { cwd: stack.canonicalRoot, env: stack.childEnv() })
   };
 }
 
-describe('walkie talk', () => {
-  test('posts a broadcast through a real walkie-svc process, verified by reading channel.md', async () => {
-    const { stack, run } = await harness('walkie-clitalk1', { spawn: true });
+describe('collabcast talk', () => {
+  test('posts a broadcast through a real collabcast-svc process, verified by reading channel.md', async () => {
+    const { stack, run } = await harness('collabcast-clitalk1', { spawn: true });
 
     const posted = await run(['talk', 'hello', 'from', 'the', 'cli']);
     expect(posted.stderr).toBe('');
@@ -56,7 +56,7 @@ describe('walkie talk', () => {
   }, 30000);
 
   test('the rendered author is the operator principal, not a string the caller chose', async () => {
-    const { stack, run } = await harness('walkie-clitalk2');
+    const { stack, run } = await harness('collabcast-clitalk2');
     const operatorId = stack.principals.operator.principalId;
 
     const renamed = await run(['rename', 'trev']);
@@ -84,7 +84,7 @@ describe('walkie talk', () => {
   }, 20000);
 
   test('warns about unresolved @mentions, and --no-invite no longer exists', async () => {
-    const { stack, run } = await harness('walkie-clitalk3');
+    const { stack, run } = await harness('collabcast-clitalk3');
 
     const out = await run(['talk', 'hey @ghost']);
     expect(out.code).toBe(0);
@@ -107,7 +107,7 @@ describe('walkie talk', () => {
   }, 20000);
 
   test('--as is gone, so an operator cannot post under another principal\'s alias', async () => {
-    const { stack, run } = await harness('walkie-clitalk4');
+    const { stack, run } = await harness('collabcast-clitalk4');
     await run(['rename', 'trev']);
 
     const help = await run(['help', 'talk']);
@@ -120,7 +120,7 @@ describe('walkie talk', () => {
   }, 20000);
 
   test('--type is honoured and an unknown type is refused without writing', async () => {
-    const { stack, run } = await harness('walkie-clitalk5');
+    const { stack, run } = await harness('collabcast-clitalk5');
 
     const question = await run(['talk', '--type', 'question', 'is this a question?']);
     expect(question.code).toBe(0);
@@ -134,19 +134,19 @@ describe('walkie talk', () => {
     // `invalid_request` is a caller mistake, not a refusal of authority, so it is exit 1 —
     // only the DENIED_CODES family maps to 2.
     expect(bogus.code).toBe(1);
-    expect(bogus.stderr).toMatch(/^walkie \[invalid_request]/);
+    expect(bogus.stderr).toMatch(/^collabcast \[invalid_request]/);
     expect(readFileSync(stack.channelPath, 'utf8')).not.toContain('obey');
   }, 20000);
 
   test('without an operator credential the CLI refuses instead of posting anonymously', async () => {
-    const stack = await createStack({ namespace: 'walkie-clitalk6', roles: ['root'] });
-    const attempt = await walkie(['talk', 'let me in'], {
+    const stack = await createStack({ namespace: 'collabcast-clitalk6', roles: ['root'] });
+    const attempt = await collabcast(['talk', 'let me in'], {
       cwd: stack.canonicalRoot,
       env: stack.childEnv()
     });
     expect(attempt.code).toBe(2);
     expect(attempt.stdout).toBe('');
-    expect(attempt.stderr).toMatch(/^walkie \[/);
+    expect(attempt.stderr).toMatch(/^collabcast \[/);
     expect(attempt.stderr).not.toMatch(/^\s+at /m);
     expect(readFileSync(stack.channelPath, 'utf8')).not.toContain('let me in');
   }, 20000);

@@ -1,11 +1,11 @@
 import { readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { WalkieError, describeValue } from './errors.js';
+import { CollabcastError, describeValue } from './errors.js';
 import { NAMESPACE_RE, isNamespace } from './namespace.js';
 import { canonicalizePath, requireAbsolutePath } from './paths.js';
 
-export const WALKIE_DIRNAME = '.walkie-talkie';
+export const COLLABCAST_DIRNAME = '.collabcast';
 export const IDENTITIES_FILENAME = 'identities.json';
 export const IDENTITIES_SCHEMA_VERSION = 1;
 
@@ -15,29 +15,29 @@ const ROOT_KEYS = ['schemaVersion', 'identities'];
 /**
  * Resolves where the host identity map lives.
  *
- * Precedence: `WALKIE_IDENTITIES` (explicit file) → `$WALKIE_HOME/.walkie-talkie/identities.json`
- * → `~/.walkie-talkie/identities.json`.
+ * Precedence: `COLLABCAST_IDENTITIES` (explicit file) → `$COLLABCAST_HOME/.collabcast/identities.json`
+ * → `~/.collabcast/identities.json`.
  *
  * @param {{env?:Record<string,string|undefined>}} [opts]
- * @returns {{path:string, origin:'WALKIE_IDENTITIES'|'WALKIE_HOME'|'home'}}
+ * @returns {{path:string, origin:'COLLABCAST_IDENTITIES'|'COLLABCAST_HOME'|'home'}}
  */
 export function identitiesPath({ env = process.env } = {}) {
-  if (env.WALKIE_IDENTITIES) {
-    return { path: resolve(env.WALKIE_IDENTITIES), origin: 'WALKIE_IDENTITIES' };
+  if (env.COLLABCAST_IDENTITIES) {
+    return { path: resolve(env.COLLABCAST_IDENTITIES), origin: 'COLLABCAST_IDENTITIES' };
   }
-  const home = env.WALKIE_HOME ? resolve(env.WALKIE_HOME) : env.HOME || homedir();
+  const home = env.COLLABCAST_HOME ? resolve(env.COLLABCAST_HOME) : env.HOME || homedir();
   return {
-    path: join(home, WALKIE_DIRNAME, IDENTITIES_FILENAME),
-    origin: env.WALKIE_HOME ? 'WALKIE_HOME' : 'home'
+    path: join(home, COLLABCAST_DIRNAME, IDENTITIES_FILENAME),
+    origin: env.COLLABCAST_HOME ? 'COLLABCAST_HOME' : 'home'
   };
 }
 
 function invalid(message, detail) {
-  return new WalkieError('config_invalid', message, detail);
+  return new CollabcastError('config_invalid', message, detail);
 }
 
 function defaultWarn(message) {
-  console.warn(`walkie: ${message}`);
+  console.warn(`collabcast: ${message}`);
 }
 
 function requirePlainObject(value, label) {
@@ -169,13 +169,13 @@ export function loadIdentities({ env = process.env, onWarn = defaultWarn } = {})
   try {
     stat = statSync(path);
   } catch {
-    throw invalid(`no walkie identity map found (located via ${origin}): ${path}`, {
+    throw invalid(`no collabcast identity map found (located via ${origin}): ${path}`, {
       path,
       origin
     });
   }
   if (!stat.isFile()) {
-    throw invalid(`walkie identity map is not a regular file: ${path}`, { path, origin });
+    throw invalid(`collabcast identity map is not a regular file: ${path}`, { path, origin });
   }
   // Writable and readable are different questions here, and the single 0o077 check conflated
   // them.
@@ -194,7 +194,7 @@ export function loadIdentities({ env = process.env, onWarn = defaultWarn } = {})
   const mode = stat.mode & 0o777;
   if ((mode & 0o022) !== 0) {
     throw invalid(
-      `walkie identity map is group/other-writable (mode 0${mode.toString(8)}): ${path} — ` +
+      `collabcast identity map is group/other-writable (mode 0${mode.toString(8)}): ${path} — ` +
         `anyone who can write it can repoint a namespace; run \`chmod 600 ${path}\` and retry`,
       { path, origin, mode: mode.toString(8) }
     );
@@ -210,7 +210,7 @@ export function loadIdentities({ env = process.env, onWarn = defaultWarn } = {})
   try {
     text = readFileSync(path, 'utf8');
   } catch (err) {
-    throw invalid(`walkie identity map is unreadable: ${path} (${err.code || 'read error'})`, {
+    throw invalid(`collabcast identity map is unreadable: ${path} (${err.code || 'read error'})`, {
       path
     });
   }
@@ -219,7 +219,7 @@ export function loadIdentities({ env = process.env, onWarn = defaultWarn } = {})
   try {
     raw = JSON.parse(text);
   } catch (err) {
-    throw invalid(`walkie identity map is not valid JSON: ${err.message}`, { path });
+    throw invalid(`collabcast identity map is not valid JSON: ${err.message}`, { path });
   }
 
   return parseIdentities(raw, { source: canonicalizePath(path) });

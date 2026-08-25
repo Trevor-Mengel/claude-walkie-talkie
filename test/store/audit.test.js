@@ -129,7 +129,7 @@ describe('redactDetail value matching', () => {
 
   test('the 24-character value boundary sits between a store id and a secret', () => {
     // Every store id is a 4-character prefix plus 16 hex characters == 20 characters, and
-    // every walkie secret is 32 bytes base64url == 43. The floor lives in the gap. If the
+    // every collabcast secret is 32 bytes base64url == 43. The floor lives in the gap. If the
     // id format ever grows past 23 characters this test fails rather than ids silently
     // turning into '[redacted]' in every audit row.
     for (const kind of ['principal', 'capability', 'approval', 'permit']) {

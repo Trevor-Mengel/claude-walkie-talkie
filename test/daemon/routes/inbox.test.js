@@ -251,7 +251,7 @@ describe('GET /inbox contents', () => {
       'broadcast'
     ]);
 
-    // The reader acks `three`: exactly what it was shown and exactly what `walkie_ack`
+    // The reader acks `three`: exactly what it was shown and exactly what `collabcast_ack`
     // instructs ("the id of the last message it actually processed"). No attacker, no
     // race, no corruption — the ordinary path.
     await ack(fx.app, reader, three);

@@ -1,11 +1,11 @@
-// Launching the real `walkie-svc` process.
+// Launching the real `collabcast-svc` process.
 //
 // v0.2 called `spawn(node, [ENTRY, wtDir, projectName])` and then polled for `server.port` and
-// `server.pid` inside `.walkie-talkie/`. Every part of that is gone:
+// `server.pid` inside `.collabcast/`. Every part of that is gone:
 //
 //   - `daemon-entry.js` takes NO arguments. It derives the namespace from the directory it was
 //     started in (via the host identity map) and the config from that namespace's
-//     `.walkie-talkie/config.json`. Passing `wtDir` as argv[2] is silently ignored, which is
+//     `.collabcast/config.json`. Passing `wtDir` as argv[2] is silently ignored, which is
 //     worse than an error: the child came up in whatever namespace owned the test runner's cwd.
 //   - there is no port file. The socket path IS the address and the namespace claim, so
 //     readiness is "something accepts a connection on the socket AND `/health` names the
@@ -53,7 +53,7 @@ function probeHealth(socketPath, timeoutMs = 500) {
 }
 
 /**
- * Spawn `walkie-svc` for one namespace and wait until it is genuinely serving.
+ * Spawn `collabcast-svc` for one namespace and wait until it is genuinely serving.
  *
  * @param {object} opts
  * @param {string} opts.cwd a directory the identity map registers to `namespace`
@@ -108,7 +108,7 @@ export async function spawnDaemon({
     for (let i = 0; i < attempts; i += 1) {
       if (exited(child)) {
         throw new Error(
-          `walkie-svc exited before becoming ready (code ${child.exitCode}, signal ` +
+          `collabcast-svc exited before becoming ready (code ${child.exitCode}, signal ` +
             `${child.signalCode}): ${stderr.trim() || '(no stderr)'}`
         );
       }
@@ -120,14 +120,14 @@ export async function spawnDaemon({
         }
         if (health && health.namespace !== namespace) {
           throw new Error(
-            `walkie-svc came up in namespace ${health.namespace}, expected ${namespace}`
+            `collabcast-svc came up in namespace ${health.namespace}, expected ${namespace}`
           );
         }
       }
       await sleep(intervalMs);
     }
     throw new Error(
-      `walkie-svc never answered /health on ${socketPath}: ${stderr.trim() || '(no stderr)'}`
+      `collabcast-svc never answered /health on ${socketPath}: ${stderr.trim() || '(no stderr)'}`
     );
   } finally {
     // Covers the timeout, the namespace mismatch and any throw from the poll itself: never

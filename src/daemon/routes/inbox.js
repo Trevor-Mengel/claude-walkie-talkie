@@ -41,7 +41,7 @@ export function inboxRoutes({ store, channelPath } = {}) {
     '/inbox',
     requireScope('channel:read'),
     handler(async (req, res) => {
-      const principal = req.walkie.principal;
+      const principal = req.collabcast.principal;
       const includeMemory = readFlag(req.query.include_memory_updates);
 
       // Read the cursors first: a message appended between this read and the

@@ -132,7 +132,7 @@ describe('token hygiene across a full enroll and publish cycle', () => {
 
     // 1. enroll — the only response that legitimately contains a token, and the MCP layer must
     //    not pass it on.
-    const enrolled = await collect('walkie_enroll', {
+    const enrolled = await collect('collabcast_enroll', {
       namespace: ns.namespace,
       role: 'root',
       scopes: SELF.scopes,
@@ -152,10 +152,10 @@ describe('token hygiene across a full enroll and publish cycle', () => {
     });
 
     // 2. talk and read — authenticated, and stating no identity.
-    await collect('walkie_talk', { body: 'hello from a capability' });
-    await collect('walkie_inbox', {});
+    await collect('collabcast_talk', { body: 'hello from a capability' });
+    await collect('collabcast_inbox', {});
     // 3. a real refusal, so an error path is on the record too.
-    const refused = await collect('walkie_edit', { id: '01HZZZ', body: 'nope' });
+    const refused = await collect('collabcast_edit', { id: '01HZZZ', body: 'nope' });
     expect(JSON.parse(refused.content[0].text).code).toBe('not_owner');
 
     // The header carried it on every authenticated request, and only there.
@@ -169,13 +169,13 @@ describe('token hygiene across a full enroll and publish cycle', () => {
 
     // 4. an `unavailable` error, raised after the service goes away.
     await service.close();
-    const dead = await collect('walkie_read', {});
+    const dead = await collect('collabcast_read', {});
     expect(JSON.parse(dead.content[0].text).code).toBe('unavailable');
     for (const text of texts) expect(text).not.toContain(TOKEN);
 
     // Nothing under any disposable root holds it: not the runtime dir, not the project, not the
     // harness's home/config/history tree.
-    const roots = [ns.base, process.env.WALKIE_ISOLATION_ROOT].filter(Boolean);
+    const roots = [ns.base, process.env.COLLABCAST_ISOLATION_ROOT].filter(Boolean);
     let scanned = 0;
     for (const root of roots) {
       for (const file of filesUnder(root)) {
@@ -186,7 +186,7 @@ describe('token hygiene across a full enroll and publish cycle', () => {
     expect(scanned).toBeGreaterThan(0);
     // The runtime dir is where a careless implementation would cache a credential. Only the
     // stub's socket may ever have been there (and closing it already unlinked the node).
-    expect(readdirSync(ns.runtimeRoot).filter((name) => name !== 'walkie.sock')).toEqual([]);
+    expect(readdirSync(ns.runtimeRoot).filter((name) => name !== 'collabcast.sock')).toEqual([]);
 
     // And nothing was written to stderr with it in.
     for (const line of stderr) expect(line).not.toContain(TOKEN);
@@ -199,7 +199,7 @@ describe('token hygiene across a full enroll and publish cycle', () => {
       env: {
         // Stale on purpose: the document claims a narrower role and older expiry than the
         // service reports.
-        WALKIE_CAPABILITY: JSON.stringify({
+        COLLABCAST_CAPABILITY: JSON.stringify({
           token: TOKEN,
           capabilityId: SELF.capabilityId,
           principalId: SELF.principalId,

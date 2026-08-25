@@ -11,7 +11,8 @@
 //
 // Isolation is identical to the real suite: the same globalSetup builds the
 // disposable state tree and the same setupFiles guard refuses live user state, so
-// a probe run here can no more reach `~/.walkie-talkie` than a suite test can.
+// a probe run here can no more reach `~/.collabcast` (or the pre-rename
+// `~/.walkie-talkie` the guard still covers) than a suite test can.
 
 import { defaultExclude, defineConfig } from 'vitest/config';
 

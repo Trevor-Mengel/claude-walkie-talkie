@@ -12,7 +12,7 @@ function writeMap(identities) {
 }
 
 function env(extra = {}) {
-  return { ...GIT_ENV, WALKIE_IDENTITIES: mapPath, ...extra };
+  return { ...GIT_ENV, COLLABCAST_IDENTITIES: mapPath, ...extra };
 }
 
 function expectThrow(fn, code) {
@@ -23,13 +23,13 @@ function expectThrow(fn, code) {
     thrown = err;
   }
   expect(thrown, 'expected a throw').toBeDefined();
-  expect(thrown.name).toBe('WalkieError');
+  expect(thrown.name).toBe('CollabcastError');
   expect(thrown.code).toBe(code);
   return thrown;
 }
 
 beforeEach(() => {
-  base = tmpRoot('walkie-resolve-');
+  base = tmpRoot('collabcast-resolve-');
   mapPath = join(base, 'identities.json');
 });
 
@@ -43,7 +43,7 @@ describe('resolveNamespace with a real git worktree', () => {
     git(['worktree', 'add', '-q', '-b', 'feature', worktree], main);
 
     writeMap({
-      'walkie-talkie': {
+      'collabcast': {
         canonicalRoot: main,
         registrations: [main],
         paseoProjectKey: 'remote:github.com/owner/repo'
@@ -57,7 +57,7 @@ describe('resolveNamespace with a real git worktree', () => {
       env: env()
     });
 
-    expect(fromWorktree.namespace).toBe('walkie-talkie');
+    expect(fromWorktree.namespace).toBe('collabcast');
     expect(fromWorktree.canonicalRoot).toBe(main);
     expect(fromWorktree.registrationRoot).toBe(main);
     expect(fromWorktree.paseoProjectKey).toBe('remote:github.com/owner/repo');
@@ -203,7 +203,7 @@ describe('resolveNamespace matching', () => {
   });
 });
 
-describe('WALKIE_NAMESPACE is a hint, not an authority', () => {
+describe('COLLABCAST_NAMESPACE is a hint, not an authority', () => {
   it('rejects a hint that does not own the cwd', () => {
     const owned = mkdirp(join(base, 'owned'));
     const elsewhere = mkdirp(join(base, 'elsewhere'));
@@ -213,7 +213,7 @@ describe('WALKIE_NAMESPACE is a hint, not an authority', () => {
     });
 
     const err = expectThrow(
-      () => resolveNamespace({ cwd: owned, env: env({ WALKIE_NAMESPACE: 'squatter' }) }),
+      () => resolveNamespace({ cwd: owned, env: env({ COLLABCAST_NAMESPACE: 'squatter' }) }),
       'namespace_unresolved'
     );
     expect(err.detail.reason).toBe('hint_does_not_own_cwd');
@@ -226,14 +226,14 @@ describe('WALKIE_NAMESPACE is a hint, not an authority', () => {
 
     expect(
       expectThrow(
-        () => resolveNamespace({ cwd: owned, env: env({ WALKIE_NAMESPACE: 'ghost' }) }),
+        () => resolveNamespace({ cwd: owned, env: env({ COLLABCAST_NAMESPACE: 'ghost' }) }),
         'namespace_unresolved'
       ).detail.reason
     ).toBe('hint_unknown_namespace');
 
     expect(
       expectThrow(
-        () => resolveNamespace({ cwd: owned, env: env({ WALKIE_NAMESPACE: 'Bad Name' }) }),
+        () => resolveNamespace({ cwd: owned, env: env({ COLLABCAST_NAMESPACE: 'Bad Name' }) }),
         'namespace_unresolved'
       ).detail.reason
     ).toBe('hint_invalid');
@@ -243,7 +243,7 @@ describe('WALKIE_NAMESPACE is a hint, not an authority', () => {
     const owned = mkdirp(join(base, 'owned'));
     writeMap({ owner: { canonicalRoot: owned, registrations: [owned] } });
     expect(
-      resolveNamespace({ cwd: owned, env: env({ WALKIE_NAMESPACE: 'owner' }) }).namespace
+      resolveNamespace({ cwd: owned, env: env({ COLLABCAST_NAMESPACE: 'owner' }) }).namespace
     ).toBe('owner');
   });
 });

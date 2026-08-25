@@ -73,7 +73,7 @@ describe('no auto-daemon', () => {
 
     const result = await tools.call({
       params: {
-        name: 'walkie_enroll',
+        name: 'collabcast_enroll',
         arguments: {
           namespace: ns.namespace,
           role: 'root',
@@ -85,7 +85,7 @@ describe('no auto-daemon', () => {
     const payload = payloadOf(result);
 
     expect(payload.code).toBe('unavailable');
-    expect(payload.message).toMatch(/walkie-svc/);
+    expect(payload.message).toMatch(/collabcast-svc/);
     expect(payload.message).toMatch(/Paseo/);
     expect(payload.message).toMatch(/clients never start it/);
     // The remedy must not be "we'll start one for you", and must not leak the socket path.
@@ -102,7 +102,7 @@ describe('no auto-daemon', () => {
     // time — over a credential that was never refused by anyone.
     const ns = createRegisteredNamespace({
       mode: 'managed',
-      env: { WALKIE_CAPABILITY: TOKEN }
+      env: { COLLABCAST_CAPABILITY: TOKEN }
     });
 
     const { capability, injectionError } = await createMcpServer({
@@ -136,7 +136,7 @@ describe('no auto-daemon', () => {
     const payload = payloadOf(
       await tools.call({
         params: {
-          name: 'walkie_enroll',
+          name: 'collabcast_enroll',
           arguments: {
             namespace: ns.namespace,
             role: 'root',
@@ -147,7 +147,7 @@ describe('no auto-daemon', () => {
       })
     );
     expect(payload.code).toBe('unavailable');
-    expect(payload.message).toMatch(/walkie start/);
+    expect(payload.message).toMatch(/collabcast start/);
     expect(payload.message).not.toMatch(/Paseo/);
   });
 });
@@ -164,7 +164,7 @@ describe('the client cannot spawn a service', () => {
     const offenders = sourceFiles('src/mcp-server', 'src/client', 'src/cli')
       .map((file) => ({ file, code: codeOf(file) }))
       .filter(({ code }) => /child_process/.test(code))
-      // `walkie init` shells out to `git config user.name`, which starts no service.
+      // `collabcast init` shells out to `git config user.name`, which starts no service.
       .filter(({ file }) => !file.endsWith(join('src', 'cli', 'init.js')));
     expect(offenders.map((h) => h.file)).toEqual([]);
   });
@@ -185,23 +185,23 @@ describe('the client cannot spawn a service', () => {
     expect(importers).toEqual(['src/cli/start.js', 'src/cli/status.js', 'src/cli/stop.js']);
   });
 
-  test('WALKIE_TOOL and WALKIE_ALIAS are no longer identity inputs', () => {
+  test('COLLABCAST_TOOL and COLLABCAST_ALIAS are no longer identity inputs', () => {
     const offenders = sourceFiles('src/mcp-server', 'src/client')
       .map((file) => ({ file, text: readFileSync(file, 'utf8') }))
-      .filter(({ text }) => /env\.WALKIE_(TOOL|ALIAS)|WALKIE_TOOL\]|WALKIE_ALIAS\]/.test(text));
+      .filter(({ text }) => /env\.COLLABCAST_(TOOL|ALIAS)|COLLABCAST_TOOL\]|COLLABCAST_ALIAS\]/.test(text));
     expect(offenders.map((h) => h.file)).toEqual([]);
     // ...and the shipped MCP manifest no longer injects one.
     const manifest = JSON.parse(readFileSync(join(PKG_ROOT, '.mcp.json'), 'utf8'));
-    expect(manifest.mcpServers['walkie-talkie'].env).toBeUndefined();
+    expect(manifest.mcpServers['collabcast'].env).toBeUndefined();
   });
 });
 
 describe('the shipped entry point', () => {
-  test('bin/walkie-talkie-mcp.js serves the tool list over stdio with nothing listening', async () => {
+  test('bin/collabcast-mcp.js serves the tool list over stdio with nothing listening', async () => {
     const ns = createRegisteredNamespace({ mode: 'managed' });
     const transport = new StdioClientTransport({
       command: process.execPath,
-      args: [join(PKG_ROOT, 'bin', 'walkie-talkie-mcp.js')],
+      args: [join(PKG_ROOT, 'bin', 'collabcast-mcp.js')],
       env: ns.env,
       cwd: ns.canonicalRoot,
       stderr: 'pipe'
@@ -211,20 +211,20 @@ describe('the shipped entry point', () => {
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name).sort()).toEqual([
-        'walkie_ack',
-        'walkie_archive',
-        'walkie_edit',
-        'walkie_enroll',
-        'walkie_inbox',
-        'walkie_read',
-        'walkie_rename',
-        'walkie_reply',
-        'walkie_sessions',
-        'walkie_talk'
+        'collabcast_ack',
+        'collabcast_archive',
+        'collabcast_edit',
+        'collabcast_enroll',
+        'collabcast_inbox',
+        'collabcast_read',
+        'collabcast_rename',
+        'collabcast_reply',
+        'collabcast_sessions',
+        'collabcast_talk'
       ]);
 
       // An unenrolled session serves its inventory and refuses to act, in one consistent way.
-      const result = await client.callTool({ name: 'walkie_read', arguments: {} });
+      const result = await client.callTool({ name: 'collabcast_read', arguments: {} });
       expect(JSON.parse(result.content[0].text).code).toBe('unauthenticated');
     } finally {
       await client.close();

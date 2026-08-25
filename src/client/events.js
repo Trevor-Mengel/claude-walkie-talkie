@@ -1,5 +1,5 @@
 /**
- * Server-sent-events reader for the walkie event feed, over the same authenticated transport
+ * Server-sent-events reader for the collabcast event feed, over the same authenticated transport
  * as everything else.
  *
  * v0.2 read the feed with `fetch('http://127.0.0.1:<port>/events')` and no credential at all.
@@ -10,7 +10,7 @@
 
 import http from 'node:http';
 import { unavailableError } from './api.js';
-import { walkieError } from '../identity/errors.js';
+import { collabcastError } from '../identity/errors.js';
 
 const FRAME_SEPARATOR = '\n\n';
 
@@ -62,7 +62,7 @@ export function openEventStream({ endpoint, token, context, onEvent, onError }) 
         res.resume();
         settled = true;
         reject(
-          walkieError('unavailable', `the walkie event feed refused the connection (HTTP ${status})`, {
+          collabcastError('unavailable', `the collabcast event feed refused the connection (HTTP ${status})`, {
             namespace: context.namespace,
             status
           })
@@ -91,7 +91,7 @@ export function openEventStream({ endpoint, token, context, onEvent, onError }) 
         }
       });
       res.on('error', (err) => fail(err));
-      res.on('end', () => fail(walkieError('unavailable', 'the walkie event feed closed')));
+      res.on('end', () => fail(collabcastError('unavailable', 'the collabcast event feed closed')));
       settled = true;
       established = true;
       resolve({

@@ -33,7 +33,7 @@ describe('redact', () => {
 
   test('keeps the fields an operator actually needs to read', () => {
     const out = redact({
-      namespace: 'walkie-talkie',
+      namespace: 'collabcast',
       role: 'listener',
       scopes: ['channel:read', 'channel:publish'],
       ttlSeconds: 900,
@@ -43,7 +43,7 @@ describe('redact', () => {
       at: '2026-08-24T00:00:00.000Z'
     });
     expect(out).toEqual({
-      namespace: 'walkie-talkie',
+      namespace: 'collabcast',
       role: 'listener',
       scopes: ['channel:read', 'channel:publish'],
       ttlSeconds: 900,
@@ -56,12 +56,12 @@ describe('redact', () => {
 
   test('structural keys survive the token-shape rule; secret keys still win over them', () => {
     const out = redact({
-      toolName: 'mcp__walkie-talkie_walkie_enroll',
+      toolName: 'mcp__collabcast_collabcast_enroll',
       namespace: 'a-very-long-namespace-identifier',
       scopes: ['channel_read_extremely_long_scope_name'],
-      code: 'mcp__walkie-talkie_walkie_enroll'
+      code: 'mcp__collabcast_collabcast_enroll'
     });
-    expect(out.toolName).toBe('mcp__walkie-talkie_walkie_enroll');
+    expect(out.toolName).toBe('mcp__collabcast_collabcast_enroll');
     expect(out.namespace).toBe('a-very-long-namespace-identifier');
     expect(out.scopes).toEqual(['channel_read_extremely_long_scope_name']);
     expect(out.code).toBe(REDACTED);
@@ -84,10 +84,10 @@ describe('redact', () => {
   });
 
   test('errors are reduced to name plus message', () => {
-    const err = new Error('could not reach the walkie authority');
+    const err = new Error('could not reach the collabcast authority');
     err.code = 'internal';
     expect(redact({ err })).toEqual({
-      err: { name: 'Error', message: 'could not reach the walkie authority' }
+      err: { name: 'Error', message: 'could not reach the collabcast authority' }
     });
   });
 

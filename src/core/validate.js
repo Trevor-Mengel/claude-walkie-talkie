@@ -58,7 +58,16 @@ const OPERATOR_NAME_RE = /^[\p{L}\p{N} ._'-]{1,80}$/u;
  */
 const HEADING_LINE_RE = /^[ \t]{0,3}#{2,6}([ \t]|$)/;
 
-/** Any walkie control comment (`walkie:msg`, `walkie:body`, `walkie:body-end`, …). */
+/**
+ * Any Collabcast control comment (`walkie:msg`, `walkie:body`, `walkie:body-end`, …).
+ *
+ * DELIBERATELY NOT RENAMED with the rest of the product. The `walkie:` prefix is the
+ * on-disk marker namespace in `channel.md`, and this literal is what the unforgeability
+ * argument rests on: a body may never contain the sequence a marker starts with. Renaming
+ * it here without rewriting every channel file on disk would let a v0.2 body smuggle a
+ * `walkie:` marker past validation. The prefix rides the v0.2 -> v0.3 importer instead,
+ * so do not "finish" the rename here.
+ */
 const WALKIE_COMMENT_RE = /<!--\s*walkie:/i;
 
 /** Closes the marker comment — fatal inside a marker value, harmless in a body. */

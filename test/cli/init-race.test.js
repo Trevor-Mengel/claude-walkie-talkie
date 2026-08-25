@@ -1,7 +1,7 @@
 // The host identity map under real process concurrency.
 //
 // The map is the root of ALL namespace resolution: `resolveNamespace` reads it to find the
-// project a client belongs to. `walkie init` used to do read -> JSON.parse -> mutate ->
+// project a client belongs to. `collabcast init` used to do read -> JSON.parse -> mutate ->
 // writeFile with no lock and no temp+rename, so two inits in different projects on one host
 // silently lost one registration (that project then failed every command with
 // `namespace_unresolved` and nothing to point at), and an interrupted write left JSON that
@@ -27,7 +27,7 @@ let base;
 let identities;
 
 beforeEach(() => {
-  base = realpathSync(createFixtureDir('walkie-init-race-'));
+  base = realpathSync(createFixtureDir('collabcast-init-race-'));
   assertDisposable(base, 'init race scratch dir');
   identities = join(base, 'identities.json');
 });
@@ -50,7 +50,7 @@ function spawnInit(dir, namespace, startAt) {
   });
 }
 
-describe('concurrent walkie init against one host identity map', () => {
+describe('concurrent collabcast init against one host identity map', () => {
   test(`${WORKERS} racing processes all keep their registration`, async () => {
     const projects = Array.from({ length: WORKERS }, (_, i) => {
       const namespace = `race-${i}`;

@@ -6,7 +6,7 @@ import {
   getCursorViews,
   requireMessageId
 } from '../../store/cursors.js';
-import { walkieError } from '../../identity/errors.js';
+import { collabcastError } from '../../identity/errors.js';
 import { audit } from '../../store/audit.js';
 import { requireScope } from '../auth.js';
 import { handler, readBody } from './support.js';
@@ -17,14 +17,14 @@ const FIELDS = ['id', 'include_memory_updates'];
 function readFlagBody(raw) {
   if (raw === undefined || raw === false) return false;
   if (raw === true) return true;
-  throw walkieError('invalid_request', 'include_memory_updates must be a boolean');
+  throw collabcastError('invalid_request', 'include_memory_updates must be a boolean');
 }
 
 /**
  * Cursor writes.
  *
  * There is deliberately no `:principalId` parameter on either route: the cursor
- * moved is always `req.walkie.principal`'s. v0.2 addressed the cursor by path
+ * moved is always `req.collabcast.principal`'s. v0.2 addressed the cursor by path
  * segment with no authentication at all, so one session could burn another's
  * queue; the shape of these routes makes that unrepresentable.
  *
@@ -52,7 +52,7 @@ export function cursorRoutes({ store, namespace } = {}) {
   const router = Router();
   const move = (kind, action) =>
     handler(async (req, res) => {
-      const principal = req.walkie.principal;
+      const principal = req.collabcast.principal;
       const body = readBody(req.body, FIELDS);
       const id = requireMessageId(body.id);
       const includeMemory = readFlagBody(body.include_memory_updates);

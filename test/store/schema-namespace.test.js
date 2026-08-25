@@ -191,7 +191,7 @@ describe('every authority table is namespace-scoped', () => {
 
     db.prepare('INSERT INTO nullable_ns (id, namespace) VALUES (?, NULL)').run('a');
     db.prepare('INSERT INTO nullable_ns (id, namespace) VALUES (?, ?)').run('b', '');
-    db.prepare('INSERT INTO nullable_ns (id, namespace) VALUES (?, ?)').run('c', 'walkie-talkie');
+    db.prepare('INSERT INTO nullable_ns (id, namespace) VALUES (?, ?)').run('c', 'collabcast');
     expect(unscopedRows(db)).toEqual(['nullable_ns:2']);
   });
 });

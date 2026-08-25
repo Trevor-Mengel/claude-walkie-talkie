@@ -8,7 +8,7 @@
 // variables cannot exist yet.
 
 export default async function setup() {
-  globalThis.__WALKIE_ISOLATION_BOOTSTRAP__ = true;
+  globalThis.__COLLABCAST_ISOLATION_BOOTSTRAP__ = true;
   const { makeDisposableRoots, applyIsolationEnv, installIsolation } = await import('./isolation.js');
   const { findLeakedFixtureDirs } = await import('./fixture-leaks.js');
   const { rmSync } = await import('node:fs');
@@ -19,7 +19,7 @@ export default async function setup() {
 
   return async () => {
     // A fixture that never removes its mkdtemp directory passes every test it
-    // takes part in; the only evidence is `walkie-*` trees accumulating in the
+    // takes part in; the only evidence is `collabcast-*` trees accumulating in the
     // OS temp dir. Fail the run on ours, and sweep them so the next run starts
     // from a clean floor. Only directories stamped with THIS run's id count, so
     // a concurrent suite on the same machine can never make this red.

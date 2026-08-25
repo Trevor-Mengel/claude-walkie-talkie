@@ -17,7 +17,7 @@
  *    nor the length of the real secret leaks through timing;
  *  - the secret's PATH is not the secret, but it still does not travel. A startup refusal names
  *    the file and the fix on the OPERATOR channel (stderr, via `onReport`) because they are the
- *    only party who can fix a wedged secret file; the WalkieError envelope carries neither,
+ *    only party who can fix a wedged secret file; the CollabcastError envelope carries neither,
  *    because an envelope reaches peers, wire replies and audit rows. `secretFileFault` is that
  *    boundary, and `secret.test.js` pins both halves of it.
  */
@@ -35,13 +35,13 @@ import {
   unlinkSync,
   writeSync
 } from 'node:fs';
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { ensureRuntimeDir, hookSecretPath, RUNTIME_FILE_MODE } from './paths.js';
 
-/** Env var the hook and the authority agree on (see omp-extension/walkie-enroll.js). */
-export const SECRET_ENV = 'WALKIE_HOOK_SECRET';
+/** Env var the hook and the authority agree on (see omp-extension/collabcast-enroll.js). */
+export const SECRET_ENV = 'COLLABCAST_HOOK_SECRET';
 
-/** 32 bytes, base64url — 43 characters, same shape as every other walkie secret. */
+/** 32 bytes, base64url — 43 characters, same shape as every other collabcast secret. */
 export const SECRET_BYTES = 32;
 
 /** A shorter secret is not a secret; refuse to load one. */
@@ -67,7 +67,7 @@ const WRITABLE_REMEDY =
  * @param {string} message
  */
 function defaultReport(message) {
-  process.stderr.write(`walkie: ${message}\n`);
+  process.stderr.write(`collabcast: ${message}\n`);
 }
 
 /**
@@ -88,7 +88,7 @@ function defaultReport(message) {
  */
 function secretFileFault(report, { problem, path, remedy, detail }) {
   report(`${problem}: ${path} — ${remedy}`);
-  return new WalkieError(
+  return new CollabcastError(
     'config_invalid',
     `${problem}; the file and the fix are on stderr`,
     detail
@@ -132,7 +132,7 @@ export function generateSecret() {
 function requireUsable(value, label, file) {
   const secret = typeof value === 'string' ? value.trim() : '';
   if (secret.length === 0) {
-    if (file === undefined) throw new WalkieError('config_invalid', `${label} is empty`);
+    if (file === undefined) throw new CollabcastError('config_invalid', `${label} is empty`);
     // An empty secret file is what an interrupted write leaves behind, and it is not
     // self-healing: the file exists at 0600, so every later boot reads it, refuses it and
     // stops. The operator gets the file name and the one-line fix.
@@ -145,7 +145,7 @@ function requireUsable(value, label, file) {
   if (secret.length < MIN_SECRET_LENGTH) {
     const detail = { minLength: MIN_SECRET_LENGTH };
     if (file === undefined) {
-      throw new WalkieError('config_invalid', `${label} is too short to be a secret`, detail);
+      throw new CollabcastError('config_invalid', `${label} is too short to be a secret`, detail);
     }
     throw secretFileFault(file.report, {
       problem: `${label} is too short to be a secret`,
@@ -247,7 +247,7 @@ export function ensureSecret({
     };
   }
   if (path === undefined && runtimeRoot === undefined) {
-    throw new WalkieError('config_invalid', 'a runtime directory is required to create a secret');
+    throw new CollabcastError('config_invalid', 'a runtime directory is required to create a secret');
   }
 
   const file = hookSecretPath(runtimeRoot, path);

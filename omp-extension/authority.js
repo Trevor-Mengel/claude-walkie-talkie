@@ -1,5 +1,5 @@
 /**
- * Newline-delimited-JSON client for the Walkie authority's enrollment socket.
+ * Newline-delimited-JSON client for the Collabcast authority's enrollment socket.
  *
  * One connection, one request line, one response line, then close. Everything that is
  * not an unambiguous success — connect error, timeout, truncated stream, malformed JSON,
@@ -92,7 +92,7 @@ export function requestEnrollmentCode({ socketPath, payload, timeoutMs = DEFAULT
     }
 
     socket.on('error', () => {
-      settle(null, authorityError('internal', 'could not reach the walkie authority'));
+      settle(null, authorityError('internal', 'could not reach the collabcast authority'));
     });
 
     socket.on('connect', () => {

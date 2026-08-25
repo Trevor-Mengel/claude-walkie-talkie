@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 describe('watcher', () => {
-  test('emits channel.external_edit when channel.md changes outside walkie-core', async () => {
+  test('emits channel.external_edit when channel.md changes outside collabcast-core', async () => {
     project = createTmpProject();
     const events = createEvents();
     const got = new Promise((resolve) => events.once('channel.external_edit', resolve));

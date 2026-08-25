@@ -10,7 +10,7 @@ export default defineConfig({
     // is structurally outside the suite; vitest's own defaults are preserved.
     exclude: [...defaultExclude, 'test/scratch/**'],
     testTimeout: 10000,
-    // Creates the per-run disposable state tree and exports WALKIE_* / GIT_CONFIG_*.
+    // Creates the per-run disposable state tree and exports COLLABCAST_* / GIT_CONFIG_*.
     globalSetup: ['./test/helpers/global-setup.js'],
     // Throws before any test body runs if this process could reach live user state.
     setupFiles: ['./test/helpers/isolation.js']

@@ -1,4 +1,4 @@
-import { walkieError } from '../identity/errors.js';
+import { collabcastError } from '../identity/errors.js';
 import { isId } from '../core/ids.js';
 import { clientForProject } from './client.js';
 
@@ -6,7 +6,7 @@ import { clientForProject } from './client.js';
  * The operator's inbox, for hook use.
  *
  * `GET /inbox` is strictly non-mutating: printing messages here does not acknowledge them.
- * Acknowledgement is `walkie ack`.
+ * Acknowledgement is `collabcast ack`.
  *
  * `--include-memory-updates` selects the memory-inclusive view, which has its OWN cursor
  * pair. Acking what this printed therefore has to carry the same flag, or the ack lands on
@@ -40,10 +40,10 @@ export async function inboxCommand(opts = {}) {
     return;
   }
   if (messages.length === 0) {
-    process.stdout.write('walkie-talkie inbox: (no new messages)\n');
+    process.stdout.write('collabcast inbox: (no new messages)\n');
     return;
   }
-  process.stdout.write(`walkie-talkie inbox: ${messages.length} message(s)\n`);
+  process.stdout.write(`collabcast inbox: ${messages.length} message(s)\n`);
   for (const m of messages) {
     const sender = m.fromAlias ?? m.fromSessionId;
     const to = (m.mentions ?? []).join(',') || 'all';
@@ -55,20 +55,20 @@ export async function inboxCommand(opts = {}) {
   // lands on the other view's cursor.
   const flag = includeMemoryUpdates ? ' --include-memory-updates' : '';
   process.stdout.write(
-    `(acknowledge with \`walkie ack ${messages[messages.length - 1].id}${flag}\`)\n`
+    `(acknowledge with \`collabcast ack ${messages[messages.length - 1].id}${flag}\`)\n`
   );
 }
 
 /**
  * Advance the read and acknowledgement cursors explicitly.
  *
- * `--include-memory-updates` must match the `walkie inbox` call whose output is being
+ * `--include-memory-updates` must match the `collabcast inbox` call whose output is being
  * acknowledged: each `/inbox` view carries its own cursor pair, and acking the wrong one
  * leaves what was actually read unacknowledged.
  */
 export async function ackCommand(idArg, opts = {}) {
   if (!isId(idArg)) {
-    throw walkieError(
+    throw collabcastError(
       'invalid_request',
       'expected the id of the last message you processed (26-character uppercase ULID)'
     );

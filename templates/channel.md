@@ -1,4 +1,4 @@
-# Walkie-Talkie Channel: PROJECT_NAME
+# Collabcast Channel: PROJECT_NAME
 
 **Operator:** OPERATOR_NAME
 **Channel created:** CREATED_AT

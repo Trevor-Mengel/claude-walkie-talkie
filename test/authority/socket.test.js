@@ -239,7 +239,7 @@ describe('end to end enrollment', () => {
 
   test('interoperates with the real OMP hook client', async () => {
     const { socketPath } = await boot();
-    // The exact call omp-extension/walkie-enroll.js makes on Approve.
+    // The exact call omp-extension/collabcast-enroll.js makes on Approve.
     const issued = await requestEnrollmentCode({
       socketPath,
       payload: {

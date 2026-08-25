@@ -1,8 +1,8 @@
 /**
- * The `walkie-svc` process: one per namespace.
+ * The `collabcast-svc` process: one per namespace.
  *
  * Everything it needs it derives from the directory it was started in — the namespace from the
- * identity map, the config from the project's `.walkie-talkie/config.json`, the store from that
+ * identity map, the config from the project's `.collabcast/config.json`, the store from that
  * config's namespace. Nothing is passed in as an argument that could contradict any of it, and
  * nothing is published to a shared location.
  *
@@ -10,7 +10,7 @@
  *
  *   - the port file. The socket path is the address, and it is the namespace claim. A port file
  *     was a second, weaker answer to "where is the daemon" that any local process could read.
- *   - `registerProject` / `deregisterProject`. That machine-global registry in `~/.walkie-talkie`
+ *   - `registerProject` / `deregisterProject`. That machine-global registry in `~/.collabcast`
  *     broadcast every project's port and pid to every same-uid process on the box, which is a
  *     cross-project information leak with no compensating benefit now that the socket is local to
  *     the project directory.
@@ -20,9 +20,9 @@ import { chmodSync, unlinkSync, writeFileSync } from 'node:fs';
 import { assertChannelStateExcluded, loadConfig } from '../config/load.js';
 import { storeDir } from '../config/schema.js';
 import { resolveNamespace } from '../identity/resolve.js';
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { paths as channelPaths } from '../core/channel.js';
-import { ensureSecret, startAuthority } from '../authority/index.js';
+import { ensureOperatorCredential, ensureSecret, startAuthority } from '../authority/index.js';
 import { openStore } from '../store/db.js';
 import { audit } from '../store/audit.js';
 import { createEvents } from './events.js';
@@ -38,7 +38,7 @@ const PID_FILE_MODE = 0o600;
 
 /** Errno reasons an operator can act on, mapped to the thing to go and look at. */
 const BIND_HINTS = Object.freeze({
-  EADDRINUSE: 'another walkie-svc is already serving this namespace',
+  EADDRINUSE: 'another collabcast-svc is already serving this namespace',
   EACCES: 'the runtime directory is not writable by this user',
   EPERM: 'the runtime directory is not writable by this user',
   ENOTDIR: 'a component of the runtime directory path is not a directory',
@@ -51,7 +51,7 @@ const BIND_HINTS = Object.freeze({
  *
  * `POST /enroll/exchange` is the single route mounted ahead of the capability gate, and it needs
  * a code that only the authority socket can mint. A service that came up with an HTTP listener
- * and no authority would therefore answer `/health`, look healthy to `walkie status`, and be
+ * and no authority would therefore answer `/health`, look healthy to `collabcast status`, and be
  * permanently incapable of issuing a first capability. So this is a hard failure, and it names
  * the directory an operator has to fix.
  *
@@ -65,7 +65,7 @@ const BIND_HINTS = Object.freeze({
 function authorityUnavailable(err, runtimeRoot, socketPath) {
   const reason = err?.detail?.reason ?? err?.code ?? 'unknown';
   const hint = BIND_HINTS[reason];
-  return new WalkieError(
+  return new CollabcastError(
     err?.code === 'conflict' ? 'conflict' : 'config_invalid',
     `the authority enrollment socket could not be started in ${runtimeRoot}; without it no ` +
       'client can ever be enrolled, so the service refuses to serve',
@@ -95,13 +95,23 @@ function writeLine(entry) {
  *
  * Construction order is load-bearing, and teardown is its exact reverse:
  *
- *     store -> hook secret -> authority socket -> HTTP transport -> pid file -> watcher
+ *     store -> hook secret -> operator credential -> authority socket -> HTTP transport
+ *       -> pid file -> watcher
  *
  * The store must be open before anything can be issued, and the secret must exist before the
  * authority accepts a connection. The authority is bound before the HTTP transport so that the
  * readiness signal every client already waits on — `/health` answering — implies enrollment is
  * possible. A surface that answers while the only door in is shut is the exact failure this
  * ordering exists to make unrepresentable.
+ *
+ * The operator credential sits in that same clause. `/health` answering has to imply the
+ * OPERATOR can act too, and for the whole of v0.3 it did not: nothing outside the test helpers
+ * ever wrote `operator.cred`, so a fresh install got a healthy service and a CLI that could not
+ * authenticate one command. It is minted here — after the store, because a capability is a row,
+ * and before the transport, because that is the promise readiness makes.
+ *
+ * Neither the secret nor the credential joins `built`: both are meant to outlive the process
+ * that created them, and unwinding one would lock out the very clients holding it.
  *
  * @param {{cwd?:string, env?:Record<string,string|undefined>, writePidFile?:boolean,
  *   log?:(entry:object) => void}} [opts]
@@ -126,7 +136,7 @@ export async function startService({
 
   const config = loadConfig({ canonicalRoot, expectNamespace: namespace });
   const store = openStore({
-    path: join(storeDir(canonicalRoot), 'walkie.db'),
+    path: join(storeDir(canonicalRoot), 'collabcast.db'),
     namespace
   });
 
@@ -190,6 +200,12 @@ export async function startService({
     // re-reads it, so this composition root cannot leak a value it never holds.
     const { path: hookSecretPath, source: hookSecretSource } = ensureSecret({ runtimeRoot, env });
 
+    // Only the path and the provenance again — this function holds a capability TOKEN, and the
+    // composition root has no business seeing it. `operator.cred` itself is the delivery
+    // channel, and it is the only one.
+    const { path: operatorCredentialPath, source: operatorCredentialSource } =
+      ensureOperatorCredential({ store, runtimeRoot });
+
     let authority;
     try {
       authority = await startAuthority({ store, config, runtimeRoot, env, log: emit });
@@ -240,9 +256,10 @@ export async function startService({
       detail: { mode: config.mode, tcp: listener.addresses.tcp !== null }
     });
 
-    // The two artifacts the OMP enrollment hook needs. `WALKIE_AUTHORITY_SOCKET` is
-    // `authoritySocket`; `WALKIE_HOOK_SECRET` is the CONTENTS of `hookSecretPath`, which is
-    // precisely why only the path is published here.
+    // The artifacts a client needs to find, named by PATH only. `COLLABCAST_HOOK_SECRET` is the
+    // CONTENTS of `hookSecretPath` and the operator's bearer is the CONTENTS of
+    // `operatorCredentialPath`; publishing either value here would put a credential in every
+    // supervisor log that tails this stream.
     emit({
       event: 'service.ready',
       namespace,
@@ -251,7 +268,9 @@ export async function startService({
       tcp: listener.addresses.tcp,
       authoritySocket: authority.socketPath,
       hookSecretPath,
-      hookSecretSource
+      hookSecretSource,
+      operatorCredentialPath,
+      operatorCredentialSource
     });
 
     let stopped = false;
@@ -278,6 +297,7 @@ export async function startService({
       runtimeRoot,
       authoritySocketPath: authority.socketPath,
       hookSecretPath,
+      operatorCredentialPath,
       stop
     };
   } catch (err) {
@@ -304,7 +324,7 @@ if (isEntryPoint(import.meta.url)) {
     service = await startService();
   } catch (err) {
     // The supervisor reads stderr; the code is the actionable part.
-    process.stderr.write(`walkie-svc failed to start: ${err.code ?? 'internal'}: ${err.message}\n`);
+    process.stderr.write(`collabcast-svc failed to start: ${err.code ?? 'internal'}: ${err.message}\n`);
     process.exit(1);
   }
 

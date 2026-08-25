@@ -27,13 +27,13 @@ function expectThrow(fn, code) {
     thrown = err;
   }
   expect(thrown, 'expected a throw').toBeDefined();
-  expect(thrown.name).toBe('WalkieError');
+  expect(thrown.name).toBe('CollabcastError');
   expect(thrown.code).toBe(code);
   return thrown;
 }
 
 beforeEach(() => {
-  base = tmpRoot('walkie-load-');
+  base = tmpRoot('collabcast-load-');
 });
 
 afterEach(() => cleanup(base));
@@ -41,10 +41,10 @@ afterEach(() => cleanup(base));
 describe('loadConfig', () => {
   it('returns a deeply frozen config with schema defaults applied', () => {
     const root = mkdirp(join(base, 'proj'));
-    writeConfig(root, { schemaVersion: CONFIG_SCHEMA_VERSION, namespace: 'walkie-talkie' });
+    writeConfig(root, { schemaVersion: CONFIG_SCHEMA_VERSION, namespace: 'collabcast' });
 
     const config = loadConfig({ canonicalRoot: root });
-    expect(config.namespace).toBe('walkie-talkie');
+    expect(config.namespace).toBe('collabcast');
     expect(config.retention.hotDays).toBe(DEFAULT_CONFIG.retention.hotDays);
     expect(config.retention.historyDir).toBe(defaultHistoryDir(root));
     expect(config.mode).toBe(DEFAULT_CONFIG.mode);
@@ -61,7 +61,7 @@ describe('loadConfig', () => {
     const root = mkdirp(join(base, 'proj'));
     writeConfig(root, {
       schemaVersion: CONFIG_SCHEMA_VERSION,
-      namespace: 'walkie-talkie',
+      namespace: 'collabcast',
       mode: 'standalone',
       retention: {
         hotDays: 7,
@@ -98,12 +98,12 @@ describe('loadConfig', () => {
     const root = mkdirp(join(base, 'proj'));
     writeConfig(root, {
       schemaVersion: CONFIG_SCHEMA_VERSION,
-      namespace: 'walkie-talkie',
+      namespace: 'collabcast',
       retention: { hotDays: 0 }
     });
     expectThrow(() => loadConfig({ canonicalRoot: root }), 'config_invalid');
 
-    writeConfig(root, { schemaVersion: CONFIG_SCHEMA_VERSION, namespace: 'walkie-talkie' });
+    writeConfig(root, { schemaVersion: CONFIG_SCHEMA_VERSION, namespace: 'collabcast' });
     expectThrow(
       () => loadConfig({ canonicalRoot: root, expectNamespace: 'other' }),
       'config_invalid'
@@ -114,8 +114,8 @@ describe('loadConfig', () => {
 
 describe('verifyPathExcluded', () => {
   it('accepts a path that is both git-ignored and untracked', () => {
-    const repo = initRepo(join(base, 'repo'), { gitignore: '.walkie-talkie/\n' });
-    const history = join(repo, '.walkie-talkie', 'history');
+    const repo = initRepo(join(base, 'repo'), { gitignore: '.collabcast/\n' });
+    const history = join(repo, '.collabcast', 'history');
 
     expect(verifyPathExcluded(history, { repoRoot: repo, env: GIT_ENV })).toEqual({
       ok: true,
@@ -176,8 +176,8 @@ describe('verifyPathExcluded', () => {
   });
 
   it('defaults repoRoot to the parent directory of the target', () => {
-    const repo = initRepo(join(base, 'repo'), { gitignore: '.walkie-talkie/\n' });
-    const history = mkdirp(join(repo, '.walkie-talkie', 'history'));
+    const repo = initRepo(join(base, 'repo'), { gitignore: '.collabcast/\n' });
+    const history = mkdirp(join(repo, '.collabcast', 'history'));
 
     expect(verifyPathExcluded(history, { env: GIT_ENV })).toEqual({
       ok: true,
@@ -188,8 +188,8 @@ describe('verifyPathExcluded', () => {
   });
 
   it('checks a path whose parent directory does not exist yet', () => {
-    const repo = initRepo(join(base, 'repo'), { gitignore: '.walkie-talkie/\n' });
-    const unborn = join(repo, '.walkie-talkie', 'history', 'gen-001');
+    const repo = initRepo(join(base, 'repo'), { gitignore: '.collabcast/\n' });
+    const unborn = join(repo, '.collabcast', 'history', 'gen-001');
 
     expect(verifyPathExcluded(unborn, { repoRoot: repo, env: GIT_ENV }).reason).toBe(
       'ignored-and-untracked'
@@ -201,12 +201,12 @@ describe('verifyPathExcluded', () => {
   });
 
   it('sees a worktree checkout as a repository', () => {
-    const repo = initRepo(join(base, 'repo'), { gitignore: '.walkie-talkie/\n' });
+    const repo = initRepo(join(base, 'repo'), { gitignore: '.collabcast/\n' });
     const worktree = join(base, 'wt');
     git(['worktree', 'add', '-q', '-b', 'feature', worktree], repo);
 
     expect(
-      verifyPathExcluded(join(worktree, '.walkie-talkie', 'history'), {
+      verifyPathExcluded(join(worktree, '.collabcast', 'history'), {
         repoRoot: worktree,
         env: GIT_ENV
       }).reason

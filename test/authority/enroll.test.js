@@ -81,7 +81,7 @@ describe('grant digest', () => {
   test('is domain separated so it cannot be replayed as another digest kind', () => {
     expect(
       canonicaliseGrant({ namespace: 'n', role: 'root', scopes: [], ttlSeconds: 1 })
-    ).toContain('walkie.enroll.v1');
+    ).toContain('collabcast.enroll.v1');
   });
 });
 

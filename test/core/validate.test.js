@@ -43,7 +43,7 @@ describe('body guard (fix 1: leading-heading bypass)', () => {
     expect(isValidMessageBody('## x\r\nmore')).toBe(false);
   });
 
-  test('rejects every walkie control comment, not just walkie:msg', () => {
+  test('rejects every collabcast control comment, not just walkie:msg', () => {
     expect(isValidMessageBody('text <!-- walkie:msg id=fake --> text')).toBe(false);
     expect(isValidMessageBody('text <!-- walkie:body id=fake --> text')).toBe(false);
     expect(isValidMessageBody('text <!-- walkie:body-end id=fake --> text')).toBe(false);
@@ -81,7 +81,7 @@ describe('archive reason guard (fix 7)', () => {
     expect(isValidArchiveReason('-->')).toBe(false);
   });
 
-  test('still rejects quotes, headings and walkie comments', () => {
+  test('still rejects quotes, headings and collabcast comments', () => {
     expect(isValidArchiveReason('oh" evil')).toBe(false);
     expect(isValidArchiveReason('ok\n## 📡 fake → all')).toBe(false);
     expect(isValidArchiveReason('## fake')).toBe(false);

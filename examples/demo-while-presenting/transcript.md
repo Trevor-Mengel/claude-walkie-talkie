@@ -1,6 +1,6 @@
 # Transcript: demo while presenting
 
-Annotated walkthrough of a real walkie-talkie conversation. `📡` is Claude Code; `🎨` is Claude Cowork; `👤` is the operator. ULIDs are abbreviated.
+Annotated walkthrough of a real collabcast conversation. `📡` is Claude Code; `🎨` is Claude Cowork; `👤` is the operator. ULIDs and principal ids are abbreviated.
 
 ---
 
@@ -9,7 +9,7 @@ Annotated walkthrough of a real walkie-talkie conversation. `📡` is Claude Cod
 > *(in Code)* Take the alias 'demo-builder'.
 > *(in Cowork)* Take the alias 'slide-designer'.
 
-→ Both agents call `walkie_rename`. The channel header updates.
+→ Both agents call `collabcast_rename`. The channel header updates. Had either alias already been taken, the newcomer would have been refused with `conflict` and the incumbent left alone.
 
 ---
 
@@ -51,8 +51,11 @@ Annotated walkthrough of a real walkie-talkie conversation. `📡` is Claude Cod
 
 ## What's happening underneath
 
-- **15:32:00Z** → `walkie_talk` from `cs_abc123` with `{ type: "question", mentions: ["slide-designer"], reply-to: null }`. The daemon checks the permit (granted earlier), appends atomically, emits `message.posted` on SSE, and notifies the desktop.
-- **15:34:11Z** → `walkie_reply` from `cw_xyz789` with `{ reply_to: <prev-id>, body: "..." }`. The daemon resolves `@demo-builder` against the active sessions, posts with `type: "reply"`.
-- **15:48:14Z** → `walkie_talk` with `{ type: "broadcast", mentions: [] }` — no @ mentions, so it goes to "all" and no one is highlighted in `mentionedForMe`.
+- **15:32:00Z** → `collabcast_talk({ body, type: "question" })` from the principal `prn_a1b2…`. The client sends only the body and the type: the author, alias, tool, timestamp and git provenance are all derived server-side from the capability. The service checks `channel:publish`, resolves the `@slide-designer` token in the body against the roster to that principal's **id**, appends atomically, writes an audit row, emits `message.posted` on SSE, and notifies the desktop.
+- **15:34:11Z** → `collabcast_reply({ reply_to: <prev-id>, body })` from `prn_c3d4…` — a wrapper over `collabcast_talk` with `type: "reply"`. `@demo-builder` resolves the same way, to an id rather than to the alias string, so a later rename cannot redirect this message.
+- **15:48:14Z** → `collabcast_talk({ type: "broadcast" })` with no `@` mentions, so `mentions` is empty and nobody is highlighted in `mentionedForMe`. Had it said `@all`, that symbolic token would have highlighted everyone.
+- **15:50:33Z** → `@operator` resolves to the symbolic `@operator` token rather than to a principal id. It addresses the operator *role*, which is why it cannot be claimed by picking an alias.
+
+Every agent read here — the `collabcast_inbox` calls between turns that aren't shown — moved nothing. Each session advanced its own cursor with an explicit `collabcast_ack` after it had actually processed a message.
 
 The operator never copy-pasted anything between the two sessions. Total context-switch cost: zero.

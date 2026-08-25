@@ -11,6 +11,11 @@ import { newIdAfter } from './ids.js';
 import { appendRevision } from './history.js';
 import { now } from './time.js';
 
+// The `walkie:` / `WALKIE:` marker namespace below is DELIBERATELY NOT RENAMED with the rest
+// of the product. It is the on-disk contract in `channel.md`: invisible to users, relied on
+// verbatim by `isValidMessageBody`'s unforgeability argument, and renaming it would force a
+// migration of a file that P1 turns into a generated projection anyway. It rides the
+// v0.2 -> v0.3 importer instead — do not "finish" the rename here.
 const HEADER_END = '<!-- WALKIE:HEADER_END -->';
 const NULL_GIT = { branch: null, hash: null, userName: null, userEmail: null };
 
@@ -32,7 +37,7 @@ const MARKER_ID_RE = /<!--\s*walkie:msg\b[^\n]*?\bid=([0-9A-HJKMNP-TV-Z]{26})\b/
  *
  * Only a `## ` heading followed by a `walkie:msg` marker starts a block, so a
  * heading that appears inside a body cannot split a message in two (a body can
- * never contain a walkie control comment — `isValidMessageBody` rejects them).
+ * never contain a collabcast control comment — `isValidMessageBody` rejects them).
  * The small lookahead tolerates hand-edited blank lines between the heading and
  * its marker.
  * @param {string} text
@@ -145,7 +150,7 @@ function enqueue(path, fn) {
  * A shed write, named.
  *
  * `proper-lockfile` throws `{ code: 'ELOCKED' }`, which is not in the wire vocabulary, so
- * `toWalkie` passed it through and the transport rendered `500 internal` — telling an
+ * `toCollabcast` passed it through and the transport rendered `500 internal` — telling an
  * agent it had hit a bug when in fact retrying was exactly right, and the message simply
  * left the conversation. Nothing was written, so `busy` is the honest answer: repeat the
  * identical request shortly.
@@ -397,19 +402,24 @@ export async function archiveMessage(path, msgId, archivedBy, reason) {
 }
 
 /**
- * Returns canonical paths for a walkie-talkie project.
+ * Returns canonical paths for a collabcast project.
+ *
+ * No `pidFile` / `portFile`. Those named `.collabcast/server.pid` and `.collabcast/server.port`,
+ * the v0.2 artifacts the transport cutover removed — the port file specifically because a local
+ * actor could rewrite it and redirect every CLI call. Nothing has read either key since, and
+ * leaving them here advertised addresses no part of the product writes. The live equivalents are
+ * `run/collabcast.pid` and the socket path, both derived by `daemon/transport.js`.
+ *
  * @param {string} projectRoot
  */
 export function paths(projectRoot) {
-  const wt = join(projectRoot, '.walkie-talkie');
+  const wt = join(projectRoot, '.collabcast');
   return {
     wtDir: wt,
     channel: join(wt, 'channel.md'),
     config: join(wt, 'config.json'),
     lockfileDir: wt,
     sessionsDir: join(wt, '.sessions'),
-    logsDir: join(wt, 'logs'),
-    pidFile: join(wt, 'server.pid'),
-    portFile: join(wt, 'server.port')
+    logsDir: join(wt, 'logs')
   };
 }

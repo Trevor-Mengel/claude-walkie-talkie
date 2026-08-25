@@ -1,4 +1,4 @@
-// A real, running walkie stack in one call.
+// A real, running collabcast stack in one call.
 //
 // v0.2's integration tests each hand-rolled their own boot: `spawnDaemon(wtDir)` plus a
 // `createTmpProject()` whose `config.json` was `{ operator, projectName, permits: [] }`. None of
@@ -69,7 +69,7 @@ const DELEGABLE = Object.freeze(['goal_hub', 'listener']);
 /**
  * One request/response round trip over a Unix socket, resolving for every status.
  *
- * Deliberately NOT `createApiClient`: that throws a `WalkieError` on non-2xx and drops the
+ * Deliberately NOT `createApiClient`: that throws a `CollabcastError` on non-2xx and drops the
  * status, and half the assertions in this slice are about the status and the error envelope.
  *
  * @param {object} opts
@@ -153,14 +153,14 @@ function normaliseRoles(roles) {
  * @param {string} [opts.namespace]
  * @param {string} [opts.operator] operator name written into the channel header
  * @param {Array<string|{name?:string, role:string, scopes?:string[], ttlSeconds?:number}>} [opts.roles]
- * @param {boolean} [opts.spawn] run the service as a real `walkie-svc` child process instead of
+ * @param {boolean} [opts.spawn] run the service as a real `collabcast-svc` child process instead of
  *   composing it in-process. Slower, but it is the only thing that proves `daemon-entry.js`
  *   boots from nothing but its cwd.
  * @param {boolean} [opts.autoCleanup] register `stop()` with `onTestFinished`
  */
 export async function createStack({
   mode = 'standalone',
-  namespace = 'walkie-stack',
+  namespace = 'collabcast-stack',
   operator = 'Stack Operator',
   roles = ['root'],
   spawn = false,
@@ -216,7 +216,7 @@ export async function createStack({
     // into a test that then asserts on nonsense.
     const config = loadConfig({ canonicalRoot: ns.canonicalRoot, expectNamespace: namespace });
 
-    const storePath = join(storeDir(ns.canonicalRoot), 'walkie.db');
+    const storePath = join(storeDir(ns.canonicalRoot), 'collabcast.db');
     assertDisposable(storePath, 'stack store');
     const store = openStore({ path: storePath, namespace });
     closers.push(() => store.close());
@@ -236,10 +236,10 @@ export async function createStack({
       daemon = await spawnDaemon({
         cwd: ns.canonicalRoot,
         env: isolatedEnv({
-          WALKIE_IDENTITIES: ns.identitiesPath,
-          WALKIE_RUNTIME_ROOT: ns.runtimeRoot,
-          WALKIE_CAPABILITY: undefined,
-          WALKIE_NAMESPACE: undefined
+          COLLABCAST_IDENTITIES: ns.identitiesPath,
+          COLLABCAST_RUNTIME_ROOT: ns.runtimeRoot,
+          COLLABCAST_CAPABILITY: undefined,
+          COLLABCAST_NAMESPACE: undefined
         }),
         socketPath: ns.socketPath,
         namespace
@@ -260,7 +260,7 @@ export async function createStack({
     }
     assertDisposable(socketPath, 'stack transport socket');
 
-    // Who owns the authority depends on who owns the daemon. A spawned `walkie-svc` binds
+    // Who owns the authority depends on who owns the daemon. A spawned `collabcast-svc` binds
     // `<runtimeRoot>/authority.sock` and mints the hook secret itself — that is its composition
     // root's job — so here the fixture ADOPTS the child's artifacts.
     //
@@ -274,10 +274,10 @@ export async function createStack({
     /** @type {number|null} the child's socket inode; a rebind here would change it */
     let adoptedInode = null;
     if (daemon) {
-      // `env: {}` so this reads the file the child wrote, never an ambient WALKIE_HOOK_SECRET.
+      // `env: {}` so this reads the file the child wrote, never an ambient COLLABCAST_HOOK_SECRET.
       const minted = loadSecret({ runtimeRoot: ns.runtimeRoot, env: {} });
       if (!minted) {
-        throw new Error('createStack: the spawned walkie-svc did not mint a hook secret');
+        throw new Error('createStack: the spawned collabcast-svc did not mint a hook secret');
       }
       hookSecret = minted.secret;
       authoritySocket = authoritySocketPath(ns.runtimeRoot);
@@ -415,7 +415,7 @@ export async function createStack({
     if (adoptedInode !== null && lstatSync(authoritySocket).ino !== adoptedInode) {
       throw new Error(
         'createStack: the authority socket was rebound; the fixture must adopt the spawned ' +
-          "walkie-svc's socket, never bind its own"
+          "collabcast-svc's socket, never bind its own"
       );
     }
 
@@ -441,20 +441,20 @@ export async function createStack({
       /** Raw env for a child process in this namespace (CLI or MCP). */
       childEnv(extra = {}) {
         return isolatedEnv({
-          WALKIE_IDENTITIES: ns.identitiesPath,
-          WALKIE_RUNTIME_ROOT: ns.runtimeRoot,
-          WALKIE_PROJECT_ROOT: ns.canonicalRoot,
-          WALKIE_CAPABILITY: undefined,
-          WALKIE_NAMESPACE: undefined,
+          COLLABCAST_IDENTITIES: ns.identitiesPath,
+          COLLABCAST_RUNTIME_ROOT: ns.runtimeRoot,
+          COLLABCAST_PROJECT_ROOT: ns.canonicalRoot,
+          COLLABCAST_CAPABILITY: undefined,
+          COLLABCAST_NAMESPACE: undefined,
           ...extra
         });
       },
 
-      /** Child env carrying one principal's capability as `WALKIE_CAPABILITY`. */
+      /** Child env carrying one principal's capability as `COLLABCAST_CAPABILITY`. */
       capabilityEnv(name, extra = {}) {
         const principal = principals[name];
         if (!principal) throw new Error(`createStack: no principal named ${name}`);
-        return this.childEnv({ WALKIE_CAPABILITY: principal.token, ...extra });
+        return this.childEnv({ COLLABCAST_CAPABILITY: principal.token, ...extra });
       },
 
       /** Write `<runtimeRoot>/operator.cred` for a minted principal (0600). */

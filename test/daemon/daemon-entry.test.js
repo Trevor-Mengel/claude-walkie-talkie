@@ -2,7 +2,7 @@
 //
 // Every other daemon test builds the stack from `test/helpers/stack.js`, and that fixture wires
 // the authority socket with its own `startAuthority` call. A fixture that constructs the subject
-// cannot notice the subject not being constructed — which is exactly how `walkie-svc` shipped a
+// cannot notice the subject not being constructed — which is exactly how `collabcast-svc` shipped a
 // boot that bound HTTP, answered `/health`, and could never issue a first capability. So this
 // file deliberately imports NOTHING from `stack.js`: it starts the real service the real way
 // (namespace from the identity map, config from the project) and then performs the bootstrap a
@@ -10,19 +10,20 @@
 
 import net from 'node:net';
 import http from 'node:http';
-import { existsSync, lstatSync, mkdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { startService } from '../../src/daemon/daemon-entry.js';
 import {
   DEFAULT_ENROLL_TTL_SECONDS,
+  OPERATOR_CREDENTIAL_FILENAME,
   ROLE_SCOPES,
   SECRET_FILENAME,
   SOCKET_FILENAME
 } from '../../src/authority/index.js';
 import { createRegisteredNamespace } from '../helpers/registered-namespace.js';
 
-const NAMESPACE = 'walkie-entry';
+const NAMESPACE = 'collabcast-entry';
 
 /** Every service this file started, so a failed assertion cannot leak a listener. */
 const running = [];
@@ -43,6 +44,7 @@ function freshNamespace() {
   const ns = createRegisteredNamespace({ namespace: NAMESPACE, mode: 'standalone' });
   expect(existsSync(join(ns.runtimeRoot, SOCKET_FILENAME))).toBe(false);
   expect(existsSync(join(ns.runtimeRoot, SECRET_FILENAME))).toBe(false);
+  expect(existsSync(join(ns.runtimeRoot, OPERATOR_CREDENTIAL_FILENAME))).toBe(false);
   return ns;
 }
 
@@ -209,6 +211,79 @@ describe('startService bootstrap', () => {
     expect(text()).not.toContain(secret);
   });
 
+  it('mints the operator credential, so readiness implies the OPERATOR can act', async () => {
+    // The boot order already promised that `/health` answering implies ENROLLMENT is possible.
+    // It did not promise the same for the operator, and for the whole of v0.3 it was false:
+    // nothing outside the test helpers wrote `operator.cred`, so a fresh install got a healthy
+    // service and a CLI that could not authenticate one command. This pins the extension.
+    const ns = freshNamespace();
+    const { service, logs, text } = await boot(ns);
+    const credentialPath = join(ns.runtimeRoot, OPERATOR_CREDENTIAL_FILENAME);
+
+    expect(existsSync(credentialPath)).toBe(true);
+    expect(mode(credentialPath)).toBe(0o600);
+    expect(service.operatorCredentialPath).toBe(credentialPath);
+
+    const ready = logs.find((entry) => entry.event === 'service.ready');
+    expect(ready).toMatchObject({
+      operatorCredentialPath: credentialPath,
+      operatorCredentialSource: 'created'
+    });
+
+    // `/health` is answering, and the credential on disk opens a gated route right now.
+    const socketPath = service.addresses.socket;
+    const health = await httpRequest({ socketPath, method: 'GET', path: '/health' });
+    expect(health.status).toBe(200);
+
+    const token = readFileSync(credentialPath, 'utf8').trim();
+    const self = await httpRequest({ socketPath, method: 'GET', path: '/self', token });
+    expect(self.status).toBe(200);
+    expect(self.body.role).toBe('operator');
+    expect(self.body.scopes).toEqual(expect.arrayContaining([...ROLE_SCOPES.operator]));
+
+    // The path travels in the log line; the bearer never does.
+    expect(text()).not.toContain(token);
+  });
+
+  it('reuses the existing operator credential across a restart', async () => {
+    const ns = freshNamespace();
+    const first = await boot(ns);
+    const credentialPath = join(ns.runtimeRoot, OPERATOR_CREDENTIAL_FILENAME);
+    const credential = readFileSync(credentialPath, 'utf8');
+    await first.service.stop();
+
+    // The credential is the operator's wiring, not per-boot state: rotating it here would
+    // invalidate a token a running CLI or script already holds.
+    expect(existsSync(credentialPath)).toBe(true);
+    const second = await boot(ns);
+    expect(readFileSync(credentialPath, 'utf8')).toBe(credential);
+    const ready = second.logs.find((entry) => entry.event === 'service.ready');
+    expect(ready.operatorCredentialSource).toBe('file');
+  });
+
+  it('refuses to serve HTTP over a credential it will not honour', async () => {
+    // Minting sits before the transport for the same reason the authority socket does. A
+    // service that came up anyway would answer `/health` with an operator who is locked out —
+    // the exact condition this ordering exists to make unrepresentable.
+    const ns = freshNamespace();
+    writeFileSync(join(ns.runtimeRoot, OPERATOR_CREDENTIAL_FILENAME), '[]\n', { mode: 0o600 });
+
+    const error = await boot(ns).then(
+      () => null,
+      (err) => err
+    );
+    expect(error, 'startService came up over an unusable operator credential').toBeTruthy();
+    expect(error.code).toBe('config_invalid');
+    // The envelope names neither the file nor the runtime root; the operator channel does.
+    expect(JSON.stringify({ m: error.message, d: error.detail ?? null })).not.toContain(
+      ns.runtimeRoot
+    );
+
+    expect(existsSync(join(ns.runtimeRoot, 'collabcast.sock'))).toBe(false);
+    expect(existsSync(join(ns.runtimeRoot, 'collabcast.pid'))).toBe(false);
+    expect(existsSync(join(ns.runtimeRoot, SOCKET_FILENAME))).toBe(false);
+  });
+
   it('refuses a bad hook secret on the socket it just bound', async () => {
     const ns = freshNamespace();
     const { service } = await boot(ns);
@@ -230,7 +305,7 @@ describe('startService bootstrap', () => {
     const { service } = await boot(ns);
     const authoritySocket = service.authoritySocketPath;
     const transportSocket = service.addresses.socket;
-    const pidPath = join(ns.runtimeRoot, 'walkie.pid');
+    const pidPath = join(ns.runtimeRoot, 'collabcast.pid');
 
     expect(existsSync(authoritySocket)).toBe(true);
     expect(existsSync(transportSocket)).toBe(true);
@@ -279,9 +354,9 @@ describe('startService bootstrap', () => {
     expect(error.detail.cause).toBeTruthy();
 
     // The whole point: no listening HTTP surface is left behind.
-    const transportSocket = join(ns.runtimeRoot, 'walkie.sock');
+    const transportSocket = join(ns.runtimeRoot, 'collabcast.sock');
     expect(existsSync(transportSocket)).toBe(false);
-    expect(existsSync(join(ns.runtimeRoot, 'walkie.pid'))).toBe(false);
+    expect(existsSync(join(ns.runtimeRoot, 'collabcast.pid'))).toBe(false);
   });
 });
 

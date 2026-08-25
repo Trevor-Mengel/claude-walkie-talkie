@@ -1,19 +1,19 @@
 {
-  "name": "claude-walkie-talkie",
+  "name": "collabcast",
   "owner": {
     "name": "Trevor Mengel",
     "email": "trevor@cloutdesk.com"
   },
-  "description": "Two-way radio for Claude Code and Claude Cowork sessions working on the same project.",
+  "description": "Broadcast channel for concurrent coding-agent sessions working on the same project.",
   "plugins": [
     {
-      "name": "walkie-talkie",
+      "name": "collabcast",
       "source": "./",
-      "description": "Asynchronous broadcast-style messaging between concurrent Claude Code and Cowork sessions. Includes SKILL.md, hooks, slash commands, and an MCP server.",
-      "homepage": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
-      "repository": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
+      "description": "Asynchronous broadcast-style messaging between concurrent coding-agent sessions and the human operator. Includes SKILL.md, hooks, slash commands, and an MCP server.",
+      "homepage": "https://github.com/Trevor-Mengel/collabcast",
+      "repository": "https://github.com/Trevor-Mengel/collabcast",
       "license": "MIT",
-      "keywords": ["mcp", "messaging", "cowork", "multi-agent", "skill"],
+      "keywords": ["mcp", "messaging", "multi-agent", "skill"],
       "category": "productivity"
     }
   ]

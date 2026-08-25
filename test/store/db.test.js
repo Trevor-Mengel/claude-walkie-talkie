@@ -52,7 +52,7 @@ describe('openStore', () => {
       err = e;
     }
     expect(err?.code).toBe('config_invalid');
-    expect(err.detail).toEqual({ found: 'walkie-talkie', expected: 'some-other-project' });
+    expect(err.detail).toEqual({ found: 'collabcast', expected: 'some-other-project' });
     // reopen under the right namespace so cleanup has a live handle
     fixture.store = openStore({ path: fixture.path, namespace: fixture.namespace });
   });

@@ -39,7 +39,7 @@ let decoyFile = null;
 beforeEach(() => {
   // The decoy is planted first, so a `createFixture` failure cannot leave the
   // cleanup hook holding `undefined`.
-  decoyDir = createFixtureDir('walkie-lfi-');
+  decoyDir = createFixtureDir('collabcast-lfi-');
   decoyFile = join(decoyDir, 'secret.history.md');
   writeFileSync(decoyFile, DECOY_CONTENT, 'utf8');
 

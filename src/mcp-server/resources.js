@@ -1,18 +1,18 @@
 /**
  * MCP resources.
  *
- * The one behavioural change that matters: `walkie://channel/inbox` used to CONSUME the read
+ * The one behavioural change that matters: `collabcast://channel/inbox` used to CONSUME the read
  * cursor. A resource read is a passive fetch an MCP client may perform on its own initiative —
  * on refresh, on reconnect, on a subscription notification — so consuming state made messages
  * vanish without anyone deciding to acknowledge them. Every read here is now strictly
- * non-mutating; acknowledging is the explicit `walkie_ack` tool.
+ * non-mutating; acknowledging is the explicit `collabcast_ack` tool.
  */
 
-import { isWalkieError, walkieError } from '../identity/errors.js';
+import { isCollabcastError, collabcastError } from '../identity/errors.js';
 
 const RESOURCES = [
   {
-    uri: 'walkie://channel/inbox',
+    uri: 'collabcast://channel/inbox',
     name: 'Inbox (new since last read)',
     description:
       'Messages new to this principal since its read cursor. Reading this resource does not ' +
@@ -20,13 +20,13 @@ const RESOURCES = [
     mimeType: 'application/json'
   },
   {
-    uri: 'walkie://channel/recent',
+    uri: 'collabcast://channel/recent',
     name: 'Recent messages',
     description: 'Snapshot of the last 20 channel messages, newest first.',
     mimeType: 'application/json'
   },
   {
-    uri: 'walkie://sessions/active',
+    uri: 'collabcast://sessions/active',
     name: 'Channel roster',
     description: 'Every principal on the channel with its role and display alias.',
     mimeType: 'application/json'
@@ -73,7 +73,7 @@ export function buildResources({ server, api, capability, events } = {}) {
       method: 'notifications/message',
       params: {
         level,
-        logger: 'walkie.subscriptions',
+        logger: 'collabcast.subscriptions',
         data: { message, subscriptions: [...subscriptions], ...extra }
       }
     });
@@ -107,19 +107,19 @@ export function buildResources({ server, api, capability, events } = {}) {
   function onStreamError(err) {
     stream = null;
     streamState = 'faulted';
-    const code = isWalkieError(err) ? err.code : 'error';
-    process.stderr.write(`[walkie-talkie-mcp] event feed closed: ${code}\n`);
+    const code = isCollabcastError(err) ? err.code : 'error';
+    process.stderr.write(`[collabcast-mcp] event feed closed: ${code}\n`);
     if (subscriptions.size === 0) return;
     tellClient(
       'warning',
-      'the walkie event feed closed, so live notifications have stopped; reconnecting once — ' +
+      'the collabcast event feed closed, so live notifications have stopped; reconnecting once — ' +
         'if this is not followed by a recovery notice, re-subscribe or poll the resource',
       { code, live: false }
     );
     // Floating on purpose: nothing awaits a feed that died on its own.
     void reopen().then(
       () => {
-        tellClient('info', 'the walkie event feed is live again', { live: true });
+        tellClient('info', 'the collabcast event feed is live again', { live: true });
         // Anything posted while the feed was down was never notified. One wake per subscribed
         // resource, so a client that only watches resource updates still re-reads once.
         notifySubscribers();
@@ -127,9 +127,9 @@ export function buildResources({ server, api, capability, events } = {}) {
       (reopenErr) => {
         tellClient(
           'error',
-          'the walkie event feed could not be reopened; this session will send no further ' +
+          'the collabcast event feed could not be reopened; this session will send no further ' +
             'resource notifications until you subscribe again',
-          { code: isWalkieError(reopenErr) ? reopenErr.code : 'error', live: false }
+          { code: isCollabcastError(reopenErr) ? reopenErr.code : 'error', live: false }
         );
       }
     );
@@ -161,7 +161,7 @@ export function buildResources({ server, api, capability, events } = {}) {
   /** @param {string} uri */
   function requireResource(uri) {
     const known = RESOURCES.some((resource) => resource.uri === uri);
-    if (!known) throw walkieError('not_found', `there is no walkie resource at ${uri}`);
+    if (!known) throw collabcastError('not_found', `there is no collabcast resource at ${uri}`);
     return uri;
   }
 
@@ -169,9 +169,9 @@ export function buildResources({ server, api, capability, events } = {}) {
     const uri = requireResource(request.params.uri);
     capability.requireActive();
     switch (uri) {
-      case 'walkie://channel/inbox':
+      case 'collabcast://channel/inbox':
         return jsonResource(uri, await api.inbox());
-      case 'walkie://channel/recent':
+      case 'collabcast://channel/recent':
         return jsonResource(uri, await api.latest(20, false));
       default:
         return jsonResource(uri, await api.principals());

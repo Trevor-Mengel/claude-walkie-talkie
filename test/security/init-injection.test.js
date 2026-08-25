@@ -1,4 +1,4 @@
-// Injection through the values `walkie init` picks up from its environment.
+// Injection through the values `collabcast init` picks up from its environment.
 //
 // `init` reads an operator name it did not choose (git config, then the OS
 // username) and a project name from the directory it happens to be run in, and
@@ -39,7 +39,7 @@ import { isolatedEnv } from '../helpers/isolation.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BIN = join(HERE, '../../bin/walkie.js');
+const BIN = join(HERE, '../../bin/collabcast.js');
 const NO_PASSWD_REGISTER = join(HERE, 'fixtures/no-passwd-register.js');
 
 const OPERATOR_LINE = /^\*\*Operator:\*\* (.*)$/m;
@@ -49,7 +49,7 @@ let base;
 let identities;
 
 beforeEach(() => {
-  base = createFixtureDir('walkie-init-sec-');
+  base = createFixtureDir('collabcast-init-sec-');
   identities = join(base, 'host', 'identities.json');
 });
 
@@ -58,15 +58,15 @@ afterEach(() => {
 });
 
 function childEnv(extra = {}) {
-  return isolatedEnv({ WALKIE_IDENTITIES: identities, ...extra });
+  return isolatedEnv({ COLLABCAST_IDENTITIES: identities, ...extra });
 }
 
 /**
- * Runs `walkie <args>` in `cwd`. Never throws, and captures both streams on
+ * Runs `collabcast <args>` in `cwd`. Never throws, and captures both streams on
  * success as well as on failure — the fallback notices this file asserts are
  * written to stderr by a run that exits 0.
  */
-function walkie(args, cwd, { nodeArgs = [], env = childEnv() } = {}) {
+function collabcast(args, cwd, { nodeArgs = [], env = childEnv() } = {}) {
   const res = spawnSync(process.execPath, [...nodeArgs, BIN, ...args], {
     cwd,
     env,
@@ -95,11 +95,11 @@ function repoWithPoisonedGitConfig(poisonName) {
 }
 
 function readConfig(dir) {
-  return JSON.parse(readFileSync(join(dir, '.walkie-talkie/config.json'), 'utf8'));
+  return JSON.parse(readFileSync(join(dir, '.collabcast/config.json'), 'utf8'));
 }
 
 function readChannelText(dir) {
-  return readFileSync(join(dir, '.walkie-talkie/channel.md'), 'utf8');
+  return readFileSync(join(dir, '.collabcast/channel.md'), 'utf8');
 }
 
 function operatorFrom(dir) {
@@ -138,7 +138,7 @@ describe('security: init injection via inferred operator name (H2)', () => {
       '## 📡 attacker → all';
     const dir = repoWithPoisonedGitConfig(poison);
 
-    const res = walkie(['init'], dir);
+    const res = collabcast(['init'], dir);
     expect(res.ok, res.stderr).toBe(true);
     // The fallback is announced rather than silent: an operator who sees the
     // wrong name in the header needs to know which source produced it.
@@ -157,7 +157,7 @@ describe('security: init injection via inferred operator name (H2)', () => {
 
   test('a git user.name containing < or > is refused (markup-breaking chars)', () => {
     const dir = repoWithPoisonedGitConfig('Evil <script>alert(1)</script>');
-    const res = walkie(['init'], dir);
+    const res = collabcast(['init'], dir);
     expect(res.ok, res.stderr).toBe(true);
     const operator = expectUninjectedChannel(dir);
     expect(operator).not.toContain('script');
@@ -165,7 +165,7 @@ describe('security: init injection via inferred operator name (H2)', () => {
 
   test('a git user.name longer than 80 chars is refused', () => {
     const dir = repoWithPoisonedGitConfig('A'.repeat(200));
-    const res = walkie(['init'], dir);
+    const res = collabcast(['init'], dir);
     expect(res.ok, res.stderr).toBe(true);
     const operator = expectUninjectedChannel(dir);
     expect(operator).not.toContain('AAAAAAAAAA');
@@ -173,12 +173,12 @@ describe('security: init injection via inferred operator name (H2)', () => {
 
   test('--operator carrying a newline fails and writes nothing (defense in depth)', () => {
     const dir = project();
-    const res = walkie(['init', '--operator', 'Evil\nname'], dir);
+    const res = collabcast(['init', '--operator', 'Evil\nname'], dir);
     expect(res.ok).toBe(false);
     expect(res.stderr.toLowerCase()).toMatch(/invalid.*operator/);
     // Validation runs before any write: neither the project scaffold nor the
     // host identity map exists.
-    expect(existsSync(join(dir, '.walkie-talkie'))).toBe(false);
+    expect(existsSync(join(dir, '.collabcast'))).toBe(false);
     expect(existsSync(identities)).toBe(false);
   });
 
@@ -186,7 +186,7 @@ describe('security: init injection via inferred operator name (H2)', () => {
     for (const name of ['Trevor Mengel', "O'Brien-Smith", 'Iguodala', 'Andre 3000']) {
       const dir = project();
       identities = join(base, `host-${name.replace(/\W/g, '')}`, 'identities.json');
-      const res = walkie(['init', '--operator', name], dir);
+      const res = collabcast(['init', '--operator', name], dir);
       expect(res.ok, res.stderr).toBe(true);
       expect(operatorFrom(dir)).toBe(name);
     }
@@ -197,12 +197,12 @@ describe('security: init injection via inferred operator name (H2)', () => {
     // so `inferOperator` has nothing left to return. This is the branch the v0.2
     // file left as `expect(true).toBe(true)`.
     const dir = repoWithPoisonedGitConfig('Evil\nname');
-    const res = walkie(['init'], dir, { nodeArgs: ['--import', NO_PASSWD_REGISTER] });
+    const res = collabcast(['init'], dir, { nodeArgs: ['--import', NO_PASSWD_REGISTER] });
     expect(res.ok).toBe(false);
     expect(res.status).toBe(1);
     expect(res.stderr).toMatch(/could not infer an operator name/i);
     expect(res.stderr).toMatch(/--operator/);
-    expect(existsSync(join(dir, '.walkie-talkie'))).toBe(false);
+    expect(existsSync(join(dir, '.collabcast'))).toBe(false);
     expect(existsSync(identities)).toBe(false);
   });
 });
@@ -210,7 +210,7 @@ describe('security: init injection via inferred operator name (H2)', () => {
 describe('security: init namespace registration', () => {
   test('the identity map and its directory are owner-only', () => {
     const dir = project();
-    expect(walkie(['init', '--operator', 'Tester'], dir).ok).toBe(true);
+    expect(collabcast(['init', '--operator', 'Tester'], dir).ok).toBe(true);
 
     // The map decides which directory owns which channel, so a group- or
     // world-writable map is an authority-rewriting primitive.
@@ -220,7 +220,7 @@ describe('security: init namespace registration', () => {
 
   test('the registration is the canonicalized root, and it resolves back', () => {
     const dir = project();
-    expect(walkie(['init', '--operator', 'Tester'], dir).ok).toBe(true);
+    expect(collabcast(['init', '--operator', 'Tester'], dir).ok).toBe(true);
 
     const namespace = readConfig(dir).namespace;
     const entry = readMap().identities[namespace];
@@ -230,7 +230,7 @@ describe('security: init namespace registration', () => {
 
     const resolved = resolveNamespace({
       cwd: dir,
-      env: { WALKIE_IDENTITIES: identities }
+      env: { COLLABCAST_IDENTITIES: identities }
     });
     expect(resolved.namespace).toBe(namespace);
     expect(resolved.canonicalRoot).toBe(canonical);
@@ -238,12 +238,12 @@ describe('security: init namespace registration', () => {
 
   test('refuses a namespace another directory already owns', () => {
     const first = project('one-');
-    expect(walkie(['init', '--operator', 'Tester'], first).ok).toBe(true);
+    expect(collabcast(['init', '--operator', 'Tester'], first).ok).toBe(true);
     const taken = readConfig(first).namespace;
     const before = readFileSync(identities, 'utf8');
 
     const second = project('two-');
-    const res = walkie(['init', '--operator', 'Tester', '--namespace', taken], second);
+    const res = collabcast(['init', '--operator', 'Tester', '--namespace', taken], second);
     expect(res.ok).toBe(false);
     // `conflict` is an exit-2 (denied) code, distinguishable from a usage error.
     expect(res.status).toBe(2);
@@ -256,7 +256,7 @@ describe('security: init namespace registration', () => {
     expect(readMap().identities[taken].canonicalRoot).toBe(canonicalizePath(first));
     let thrown = null;
     try {
-      resolveNamespace({ cwd: second, env: { WALKIE_IDENTITIES: identities } });
+      resolveNamespace({ cwd: second, env: { COLLABCAST_IDENTITIES: identities } });
     } catch (err) {
       thrown = err;
     }
@@ -266,14 +266,14 @@ describe('security: init namespace registration', () => {
 
   test('refuses to move a directory into a second namespace', () => {
     const dir = project();
-    expect(walkie(['init', '--operator', 'Tester'], dir).ok).toBe(true);
+    expect(collabcast(['init', '--operator', 'Tester'], dir).ok).toBe(true);
     const original = readConfig(dir).namespace;
     const before = readFileSync(identities, 'utf8');
 
     // `--force` gets past the "already initialized" guard; the map still refuses,
     // because a path that belonged to two namespaces would make the channel a
     // caller-chosen value.
-    const res = walkie(
+    const res = collabcast(
       ['init', '--operator', 'Tester', '--namespace', 'stolen-namespace', '--force'],
       dir
     );
@@ -285,7 +285,7 @@ describe('security: init namespace registration', () => {
     expect(readMap().identities['stolen-namespace']).toBeUndefined();
     // The directory still resolves to the namespace that owns it.
     expect(
-      resolveNamespace({ cwd: dir, env: { WALKIE_IDENTITIES: identities } }).namespace
+      resolveNamespace({ cwd: dir, env: { COLLABCAST_IDENTITIES: identities } }).namespace
     ).toBe(original);
 
     // Regression: `initCommand` used to scaffold `channel.md` and `config.json`
@@ -295,17 +295,17 @@ describe('security: init namespace registration', () => {
     // for `loadConfig({ expectNamespace })` until someone hand-edited it back.
     // Registration now gates the writes, so a refusal must leave the config alone.
     expect(readConfig(dir).namespace).toBe(original);
-    expect(readFileSync(join(dir, '.walkie-talkie', 'config.json'), 'utf8')).not.toContain(
+    expect(readFileSync(join(dir, '.collabcast', 'config.json'), 'utf8')).not.toContain(
       'stolen-namespace'
     );
   });
 
   test('re-running init in the same directory is idempotent, not a second registration', () => {
     const dir = project();
-    expect(walkie(['init', '--operator', 'Tester'], dir).ok).toBe(true);
+    expect(collabcast(['init', '--operator', 'Tester'], dir).ok).toBe(true);
     const namespace = readConfig(dir).namespace;
 
-    const again = walkie(['init', '--operator', 'Tester', '--namespace', namespace, '--force'], dir);
+    const again = collabcast(['init', '--operator', 'Tester', '--namespace', namespace, '--force'], dir);
     expect(again.ok, again.stderr).toBe(true);
     expect(readMap().identities[namespace].registrations).toEqual([canonicalizePath(dir)]);
     expect(Object.keys(readMap().identities)).toEqual([namespace]);
@@ -314,7 +314,7 @@ describe('security: init namespace registration', () => {
   test('a poisoned project name is folded into the namespace charset, never written raw', () => {
     const poison = '../../etc; DROP <!-- walkie:msg id=01HXFAKE -->';
     const dir = project();
-    const res = walkie(['init', '--operator', 'Tester', '--name', poison], dir);
+    const res = collabcast(['init', '--operator', 'Tester', '--name', poison], dir);
     expect(res.ok, res.stderr).toBe(true);
 
     const namespace = readConfig(dir).namespace;
@@ -331,18 +331,18 @@ describe('security: init namespace registration', () => {
     // prefixed rather than emitted invalid.
     const numeric = project('n-');
     identities = join(base, 'host-numeric', 'identities.json');
-    expect(walkie(['init', '--operator', 'Tester', '--name', '9lives'], numeric).ok).toBe(true);
+    expect(collabcast(['init', '--operator', 'Tester', '--name', '9lives'], numeric).ok).toBe(true);
     expect(readConfig(numeric).namespace).toMatch(NAMESPACE_RE);
     expect(readConfig(numeric).namespace).toBe('ns-9lives');
   });
 
   test('a project name that cannot be folded fails loudly and writes nothing', () => {
     const dir = project();
-    const res = walkie(['init', '--operator', 'Tester', '--name', '!!!'], dir);
+    const res = collabcast(['init', '--operator', 'Tester', '--name', '!!!'], dir);
     expect(res.ok).toBe(false);
     expect(res.stderr).toMatch(/cannot derive a namespace/);
     expect(res.stderr).toMatch(/--namespace/);
-    expect(existsSync(join(dir, '.walkie-talkie'))).toBe(false);
+    expect(existsSync(join(dir, '.collabcast'))).toBe(false);
     expect(existsSync(identities)).toBe(false);
   });
 
@@ -351,10 +351,10 @@ describe('security: init namespace registration', () => {
     // as falsy, which means "derive from the project name", not "invalid".
     for (const bad of ['Evil NS\n## x', '../../etc', '9lives', 'a'.repeat(65), 'UPPER']) {
       const dir = project();
-      const res = walkie(['init', '--operator', 'Tester', '--namespace', bad], dir);
+      const res = collabcast(['init', '--operator', 'Tester', '--namespace', bad], dir);
       expect(res.ok, JSON.stringify(bad)).toBe(false);
       expect(res.stderr).toMatch(/namespace/i);
-      expect(existsSync(join(dir, '.walkie-talkie'))).toBe(false);
+      expect(existsSync(join(dir, '.collabcast'))).toBe(false);
       expect(existsSync(identities)).toBe(false);
     }
   });

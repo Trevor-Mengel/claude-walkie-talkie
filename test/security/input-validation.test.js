@@ -247,7 +247,7 @@ describe('security: size caps', () => {
     expect(res.body.error.code).toBe('invalid_request');
     // Regression: `requireBody` used to report an oversized body through
     // `isValidMessageBody`, which folds length and markup into one boolean, so a
-    // clean-but-too-long body was told it "may not contain a walkie control
+    // clean-but-too-long body was told it "may not contain a collabcast control
     // comment or a markdown heading". The two refusals are now distinct.
     expect(res.body.error.message).toMatch(/exceeds the \d+ character limit/);
     expect(res.body.error.message).not.toMatch(/control comment|markdown heading/);

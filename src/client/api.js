@@ -1,5 +1,5 @@
 /**
- * The one HTTP client both walkie clients use.
+ * The one HTTP client both collabcast clients use.
  *
  * Everything here is deliberately narrow:
  *
@@ -12,13 +12,13 @@
  * - The token is supplied by a provider callback, never stored on the client, never returned
  *   from a method, and never interpolated into an error. A caller literally cannot read it
  *   back out of this module.
- * - A `{ error: { code, message, detail? } }` envelope becomes a `WalkieError` with the same
+ * - A `{ error: { code, message, detail? } }` envelope becomes a `CollabcastError` with the same
  *   code, so callers branch on codes rather than on HTTP status strings. A response that is
  *   not an envelope never has its body echoed: it could contain anything.
  */
 
 import http from 'node:http';
-import { WalkieError, walkieError, ERROR_CODES } from '../identity/errors.js';
+import { CollabcastError, collabcastError, ERROR_CODES } from '../identity/errors.js';
 
 /** Requests are local-only; a slow local socket means something is wrong, not busy. */
 export const DEFAULT_TIMEOUT_MS = 10_000;
@@ -43,33 +43,33 @@ function query(params) {
  * secret) and the remedy appropriate to the mode, and never the socket path.
  *
  * @param {{namespace:string, mode:string}} ctx
- * @returns {WalkieError}
+ * @returns {CollabcastError}
  */
 export function unavailableError({ namespace, mode }) {
   if (mode === 'managed') {
-    return walkieError(
+    return collabcastError(
       'unavailable',
-      `the walkie-svc service for namespace "${namespace}" is not accepting connections. ` +
+      `the collabcast-svc service for namespace "${namespace}" is not accepting connections. ` +
         'In managed mode this process is supervised by Paseo and clients never start it: ' +
-        'check that the Paseo-supervised walkie-svc instance for this namespace is running.',
+        'check that the Paseo-supervised collabcast-svc instance for this namespace is running.',
       { namespace, mode, supervisor: 'paseo' }
     );
   }
-  return walkieError(
+  return collabcastError(
     'unavailable',
-    `the walkie-svc service for namespace "${namespace}" is not accepting connections. ` +
-      'In standalone mode start it with `walkie start`.',
+    `the collabcast-svc service for namespace "${namespace}" is not accepting connections. ` +
+      'In standalone mode start it with `collabcast start`.',
     { namespace, mode }
   );
 }
 
 /**
- * Turn a non-2xx response into a WalkieError. An envelope is honoured verbatim; anything else
+ * Turn a non-2xx response into a CollabcastError. An envelope is honoured verbatim; anything else
  * yields a generic error, because an unrecognised body may hold arbitrary content.
  *
  * @param {number} status
  * @param {unknown} parsed
- * @returns {WalkieError}
+ * @returns {CollabcastError}
  */
 function errorFromResponse(status, parsed) {
   const envelope = parsed && typeof parsed === 'object' ? parsed.error : undefined;
@@ -78,13 +78,13 @@ function errorFromResponse(status, parsed) {
       typeof envelope.message === 'string' && envelope.message !== ''
         ? envelope.message
         : `request rejected with ${envelope.code}`;
-    const err = new WalkieError(envelope.code, message, envelope.detail);
+    const err = new CollabcastError(envelope.code, message, envelope.detail);
     err.status = status;
     return err;
   }
-  const err = walkieError(
+  const err = collabcastError(
     'internal',
-    `the walkie service returned an unrecognised HTTP ${status} response`,
+    `the collabcast service returned an unrecognised HTTP ${status} response`,
     { status }
   );
   err.status = status;
@@ -103,12 +103,12 @@ function errorFromResponse(status, parsed) {
  * @param {number} status
  * @param {number} bytes
  * @param {{namespace:string, mode:string}} context
- * @returns {WalkieError}
+ * @returns {CollabcastError}
  */
 function unreadableBodyError(status, bytes, context) {
-  const err = walkieError(
+  const err = collabcastError(
     'internal',
-    `the walkie service returned an HTTP ${status} response this client could not read`,
+    `the collabcast service returned an HTTP ${status} response this client could not read`,
     { namespace: context.namespace, status, bytes }
   );
   err.status = status;
@@ -116,11 +116,11 @@ function unreadableBodyError(status, bytes, context) {
 }
 
 /** Distinguishes "the body did not parse" from "the body parsed to null". */
-const UNREADABLE = Symbol('walkie:unreadable-body');
+const UNREADABLE = Symbol('collabcast:unreadable-body');
 
 /**
  * One request/response round trip. Resolves with the parsed body on 2xx, rejects with a
- * WalkieError otherwise.
+ * CollabcastError otherwise.
  *
  * @param {object} opts
  * @param {{socketPath?:string, host?:string, port?:number}} opts.endpoint
@@ -190,9 +190,9 @@ export function request({ endpoint, method, path, body, token, timeoutMs, contex
       req.destroy();
       settle(
         undefined,
-        walkieError(
+        collabcastError(
           'unavailable',
-          `the walkie service for namespace "${context.namespace}" did not respond in time`,
+          `the collabcast service for namespace "${context.namespace}" did not respond in time`,
           { namespace: context.namespace, timeoutMs: timeoutMs ?? DEFAULT_TIMEOUT_MS }
         )
       );
@@ -206,7 +206,7 @@ export function request({ endpoint, method, path, body, token, timeoutMs, contex
       // Never surface err.message: it embeds the socket path.
       settle(
         undefined,
-        walkieError('internal', 'the walkie service connection failed', {
+        collabcastError('internal', 'the collabcast service connection failed', {
           namespace: context.namespace
         })
       );
@@ -218,7 +218,7 @@ export function request({ endpoint, method, path, body, token, timeoutMs, contex
 }
 
 /**
- * Build a typed client for the walkie HTTP API.
+ * Build a typed client for the collabcast HTTP API.
  *
  * @param {object} opts
  * @param {{socketPath?:string, host?:string, port?:number}} opts.endpoint

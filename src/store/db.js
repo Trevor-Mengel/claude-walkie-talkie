@@ -105,7 +105,7 @@ function unwindSavepoint(db, name) {
 function runSavepoint(db, namespace, fn) {
   // Unique per nesting level on this connection: SAVEPOINT names are identifiers, and
   // a reused name would make `ROLLBACK TO` target the innermost one with that name.
-  const name = `walkie_tx_${++savepointSeq}`;
+  const name = `collabcast_tx_${++savepointSeq}`;
   db.exec(`SAVEPOINT ${name};`);
   let out;
   try {

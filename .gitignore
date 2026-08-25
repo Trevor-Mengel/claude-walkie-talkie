@@ -2,6 +2,11 @@ node_modules/
 coverage/
 .DS_Store
 *.log
+.collabcast/
+.collabcast-test-*/
+# Pre-rename runtime state. Retained deliberately: existing checkouts still have
+# a .walkie-talkie/ tree on disk until the operator migrates, and it must stay
+# ignored until then. Safe to drop once no working copy carries one.
 .walkie-talkie/
 .walkie-talkie-test-*/
 .vscode/

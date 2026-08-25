@@ -1,4 +1,4 @@
--- Walkie v0.3 canonical store schema. Version 4.
+-- Collabcast v0.3 canonical store schema. Version 4.
 --
 -- This file is the single source of truth for the SQLite shape. It is applied
 -- once, idempotently, by src/store/db.js. Every credential, event, cursor,

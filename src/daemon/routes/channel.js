@@ -9,7 +9,7 @@ import {
 import { gitMetadata } from '../../core/git.js';
 import { readHistory } from '../../core/history.js';
 import { now } from '../../core/time.js';
-import { walkieError } from '../../identity/errors.js';
+import { collabcastError } from '../../identity/errors.js';
 import { audit } from '../../store/audit.js';
 import { requireScope } from '../auth.js';
 import {
@@ -40,7 +40,7 @@ const ARCHIVE_FIELDS = ['reason'];
 
 function requireId(value) {
   if (!isValidUlid(value)) {
-    throw walkieError('invalid_request', 'message id must be a ULID');
+    throw collabcastError('invalid_request', 'message id must be a ULID');
   }
   return value;
 }
@@ -55,21 +55,21 @@ function requireId(value) {
  */
 function requireBody(value) {
   if (typeof value !== 'string' || value.length === 0) {
-    throw walkieError('invalid_request', 'body is required');
+    throw collabcastError('invalid_request', 'body is required');
   }
   // Length and markup are separate refusals. `isValidMessageBody` folds both
   // into one boolean, so reporting it as a single reason told an oversized but
   // otherwise clean body that it contained a control comment.
   if (value.length > MAX_BODY_LENGTH) {
-    throw walkieError('invalid_request', `body exceeds the ${MAX_BODY_LENGTH} character limit`, {
+    throw collabcastError('invalid_request', `body exceeds the ${MAX_BODY_LENGTH} character limit`, {
       length: value.length,
       limit: MAX_BODY_LENGTH
     });
   }
   if (!isValidMessageBody(value)) {
-    throw walkieError(
+    throw collabcastError(
       'invalid_request',
-      'body may not contain a walkie control comment or a markdown heading'
+      'body may not contain a collabcast control comment or a markdown heading'
     );
   }
   return value;
@@ -77,7 +77,7 @@ function requireBody(value) {
 
 function findMessage(messages, id) {
   const message = messages.find((m) => m.id === id);
-  if (!message) throw walkieError('not_found', 'message not found', { id });
+  if (!message) throw collabcastError('not_found', 'message not found', { id });
   return message;
 }
 
@@ -90,7 +90,7 @@ export function channelRoutes({ store, namespace, channelPath, events } = {}) {
   const router = Router();
   const wtDir = dirname(channelPath);
   const sessionsDir = join(wtDir, '.sessions');
-  // `.walkie-talkie` sits directly inside the project root; git metadata is read
+  // `.collabcast` sits directly inside the project root; git metadata is read
   // from there, never from anything a caller supplies.
   const projectRoot = dirname(wtDir);
 
@@ -129,7 +129,7 @@ export function channelRoutes({ store, namespace, channelPath, events } = {}) {
   const record = (req, action, subject, outcome, detail) =>
     audit(store, {
       namespace,
-      actorPrincipalId: req.walkie.principal.id,
+      actorPrincipalId: req.collabcast.principal.id,
       action,
       subject,
       outcome,
@@ -176,16 +176,16 @@ export function channelRoutes({ store, namespace, channelPath, events } = {}) {
     '/channel/message',
     requireScope('channel:publish'),
     handler(async (req, res) => {
-      const principal = req.walkie.principal;
+      const principal = req.collabcast.principal;
       const fields = readBody(req.body, POST_FIELDS);
       const body = requireBody(fields.body);
       const type = fields.type === undefined ? 'broadcast' : fields.type;
       if (!isValidMessageType(type)) {
-        throw walkieError('invalid_request', 'unknown message type', { type: String(type) });
+        throw collabcastError('invalid_request', 'unknown message type', { type: String(type) });
       }
       const replyTo = fields.replyTo === undefined ? null : fields.replyTo;
       if (!isValidReplyTo(replyTo)) {
-        throw walkieError('invalid_request', 'replyTo must be a ULID');
+        throw collabcastError('invalid_request', 'replyTo must be a ULID');
       }
 
       const { mentions, unresolved } = resolveRosterMentions(store, body);
@@ -219,7 +219,7 @@ export function channelRoutes({ store, namespace, channelPath, events } = {}) {
     '/channel/message/:id',
     requireScope('channel:publish'),
     handler(async (req, res) => {
-      const principal = req.walkie.principal;
+      const principal = req.collabcast.principal;
       const id = requireId(req.params.id);
       const body = requireBody(readBody(req.body, PATCH_FIELDS).body);
 
@@ -230,7 +230,7 @@ export function channelRoutes({ store, namespace, channelPath, events } = {}) {
       // principal — operator included — can rewrite another's body.
       if (!ownsMessage(principal, message)) {
         record(req, 'channel.edit', id, 'denied', { reason: 'not_owner' });
-        throw walkieError('not_owner', 'only the author may edit a message', { id });
+        throw collabcastError('not_owner', 'only the author may edit a message', { id });
       }
 
       const { revision } = await editMessage(channelPath, id, body, principal.id);
@@ -244,12 +244,12 @@ export function channelRoutes({ store, namespace, channelPath, events } = {}) {
     '/channel/message/:id/archive',
     requireScope('channel:publish'),
     handler(async (req, res) => {
-      const principal = req.walkie.principal;
+      const principal = req.collabcast.principal;
       const id = requireId(req.params.id);
       const fields = readBody(req.body, ARCHIVE_FIELDS);
       const reason = fields.reason === undefined ? null : fields.reason;
       if (!isValidArchiveReason(reason)) {
-        throw walkieError(
+        throw collabcastError(
           'invalid_request',
           'archive reason may not contain a quote, a comment terminator or a heading'
         );
@@ -261,7 +261,7 @@ export function channelRoutes({ store, namespace, channelPath, events } = {}) {
       const isOperator = principal.role === 'operator';
       if (!owned && !isOperator) {
         record(req, 'channel.archive', id, 'denied', { reason: 'not_owner' });
-        throw walkieError('not_owner', 'only the author or an operator may archive a message', {
+        throw collabcastError('not_owner', 'only the author or an operator may archive a message', {
           id
         });
       }

@@ -4,12 +4,12 @@
 //     string `'operator'`, so it NEVER fired: the operator got a toast for every message
 //     they typed themselves.
 //   - a `permit.required` subscription survived the cutover with nothing emitting it and a
-//     body telling the operator to run `walkie permit <id> --once`, a deleted command.
+//     body telling the operator to run `collabcast permit <id> --once`, a deleted command.
 //   - `notifier.notify` reports a failed spawn through its CALLBACK, so the synchronous
 //     try/catch around it could never see one.
 //
 // `node-notifier` is mocked, so no test can fire a real notification even with the
-// WALKIE_NO_NOTIFY kill-switch deliberately lifted.
+// COLLABCAST_NO_NOTIFY kill-switch deliberately lifted.
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
@@ -52,13 +52,13 @@ beforeEach(() => {
  * @param {object} [opts]
  */
 function attachEnabled(events, opts = {}) {
-  const original = process.env.WALKIE_NO_NOTIFY;
+  const original = process.env.COLLABCAST_NO_NOTIFY;
   try {
-    delete process.env.WALKIE_NO_NOTIFY;
+    delete process.env.COLLABCAST_NO_NOTIFY;
     attachNotifier({ events, projectName: 'proj', ...opts });
   } finally {
-    if (original === undefined) delete process.env.WALKIE_NO_NOTIFY;
-    else process.env.WALKIE_NO_NOTIFY = original;
+    if (original === undefined) delete process.env.COLLABCAST_NO_NOTIFY;
+    else process.env.COLLABCAST_NO_NOTIFY = original;
   }
 }
 
@@ -82,7 +82,7 @@ describe('attachNotifier: the operator is not notified of their own posts', () =
       role: 'listener'
     });
     expect(notifyCalls).toHaveLength(1);
-    expect(notifyCalls[0].title).toBe('walkie-talkie — proj');
+    expect(notifyCalls[0].title).toBe('collabcast — proj');
     expect(notifyCalls[0].message).toContain('prn_agent_02');
     expect(notifyCalls[0].message).toContain('question');
   });
@@ -136,10 +136,10 @@ describe('attachNotifier: the dead permit.required subscription is gone', () => 
   });
 });
 
-describe('attachNotifier: WALKIE_NO_NOTIFY still suppresses everything', () => {
+describe('attachNotifier: COLLABCAST_NO_NOTIFY still suppresses everything', () => {
   test('no listeners are registered and nothing fires', () => {
     // The suite-wide guard is set; this is the production path a test must never leave.
-    expect(process.env.WALKIE_NO_NOTIFY).toBeTruthy();
+    expect(process.env.COLLABCAST_NO_NOTIFY).toBeTruthy();
     const events = new EventEmitter();
     attachNotifier({ events, projectName: 'proj' });
 

@@ -17,7 +17,7 @@ import { openStore } from '../../src/store/db.js';
 import { listAudit } from '../../src/store/audit.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
-export const NAMESPACE = 'walkie-talkie';
+export const NAMESPACE = 'collabcast';
 
 /** A usable hook secret: same shape as a real one, fixed so tests can grep for it. */
 export const TEST_SECRET = 'test-hook-secret-000000000000000000000000000';

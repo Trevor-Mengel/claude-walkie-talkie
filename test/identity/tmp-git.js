@@ -10,10 +10,10 @@ import { createFixtureDir } from '../helpers/fixture-leaks.js';
 export const GIT_ENV = Object.freeze({
   GIT_CONFIG_GLOBAL: '/dev/null',
   GIT_CONFIG_SYSTEM: '/dev/null',
-  GIT_AUTHOR_NAME: 'Walkie Test',
-  GIT_AUTHOR_EMAIL: 'walkie-test@example.invalid',
-  GIT_COMMITTER_NAME: 'Walkie Test',
-  GIT_COMMITTER_EMAIL: 'walkie-test@example.invalid',
+  GIT_AUTHOR_NAME: 'Collabcast Test',
+  GIT_AUTHOR_EMAIL: 'collabcast-test@example.invalid',
+  GIT_COMMITTER_NAME: 'Collabcast Test',
+  GIT_COMMITTER_EMAIL: 'collabcast-test@example.invalid',
   GIT_TERMINAL_PROMPT: '0'
 });
 
@@ -27,7 +27,7 @@ export function git(args, cwd) {
 }
 
 /** A physical (symlink-resolved) temp directory. */
-export function tmpRoot(prefix = 'walkie-identity-') {
+export function tmpRoot(prefix = 'collabcast-identity-') {
   return realpathSync(createFixtureDir(prefix));
 }
 

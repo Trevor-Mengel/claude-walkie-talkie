@@ -1,4 +1,4 @@
-import { walkieError } from '../identity/errors.js';
+import { collabcastError } from '../identity/errors.js';
 import { DEFAULT_ENROLL_TTL_SECONDS, scopesForRole } from '../authority/policy.js';
 import { clientForProject } from './client.js';
 
@@ -13,15 +13,15 @@ export const DELEGABLE_ROLES = Object.freeze(['goal_hub', 'listener']);
 export const DEFAULT_SCOPES = Object.freeze(['channel:read', 'self:cursor']);
 
 const NORMAL_PATH =
-  'Normal enrollment is initiated by the agent: it calls walkie_enroll, the approval hook ' +
+  'Normal enrollment is initiated by the agent: it calls collabcast_enroll, the approval hook ' +
   'shows you what is being requested, and your approval issues a one-use code. Use ' +
-  '`walkie enroll --recovery` only when that path is unavailable — it mints a capability ' +
+  '`collabcast enroll --recovery` only when that path is unavailable — it mints a capability ' +
   'directly from your operator credential, with no approval dialog.';
 
 function parseRole(raw) {
   const role = raw === undefined ? 'listener' : String(raw).trim();
   if (!DELEGABLE_ROLES.includes(role)) {
-    throw walkieError('invalid_request', `--role must be one of ${DELEGABLE_ROLES.join(', ')}`, {
+    throw collabcastError('invalid_request', `--role must be one of ${DELEGABLE_ROLES.join(', ')}`, {
       role
     });
   }
@@ -37,12 +37,12 @@ function parseScopes(raw, role) {
           .map((scope) => scope.trim())
           .filter((scope) => scope !== '');
   if (requested.length === 0) {
-    throw walkieError('invalid_request', '--scopes was given but listed no scopes');
+    throw collabcastError('invalid_request', '--scopes was given but listed no scopes');
   }
   const allowed = scopesForRole(role);
   const outside = requested.filter((scope) => !allowed.includes(scope));
   if (outside.length) {
-    throw walkieError(
+    throw collabcastError(
       'invalid_request',
       `role ${role} may not hold ${outside.join(', ')}. It may hold: ${allowed.join(', ')}`,
       { role, rejected: outside }
@@ -55,7 +55,7 @@ function parseTtl(raw) {
   if (raw === undefined) return DEFAULT_ENROLL_TTL_SECONDS;
   const ttl = Number(raw);
   if (!Number.isInteger(ttl) || ttl <= 0) {
-    throw walkieError('invalid_request', '--ttl must be a positive whole number of seconds');
+    throw collabcastError('invalid_request', '--ttl must be a positive whole number of seconds');
   }
   return ttl;
 }
@@ -70,7 +70,7 @@ function parseTtl(raw) {
  */
 export async function enrollCommand(opts = {}) {
   if (!opts.recovery) {
-    throw walkieError('invalid_request', `refusing to enroll without --recovery. ${NORMAL_PATH}`);
+    throw collabcastError('invalid_request', `refusing to enroll without --recovery. ${NORMAL_PATH}`);
   }
   const role = parseRole(opts.role);
   const scopes = parseScopes(opts.scopes, role);
@@ -100,8 +100,8 @@ export async function enrollCommand(opts = {}) {
       'Token (shown once; this command writes it nowhere):',
       `  ${issued.token}`,
       '',
-      'Give it to the agent as WALKIE_CAPABILITY. If you must write it down, the file must be',
-      `mode 0600. Revoke it with \`walkie revoke ${issued.capabilityId}\`.`
+      'Give it to the agent as COLLABCAST_CAPABILITY. If you must write it down, the file must be',
+      `mode 0600. Revoke it with \`collabcast revoke ${issued.capabilityId}\`.`
     ].join('\n')}\n`
   );
 }

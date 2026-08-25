@@ -11,7 +11,7 @@ import { createFixtureDir } from '../helpers/fixture-leaks.js';
 import {
   PID_FILENAME,
   SOCKET_FILE_MODE,
-  WALKIE_SOCKET_FILENAME,
+  COLLABCAST_SOCKET_FILENAME,
   assertBindableSocketPath,
   ensureSocketDir,
   listen,
@@ -65,14 +65,14 @@ describe('resolveTransportPaths', () => {
   it('puts both sockets and the pid file in one runtime directory', () => {
     const paths = resolveTransportPaths({ runtimeRoot });
     expect(paths.runtimeRoot).toBe(runtimeRoot);
-    expect(paths.socketPath).toBe(join(runtimeRoot, WALKIE_SOCKET_FILENAME));
+    expect(paths.socketPath).toBe(join(runtimeRoot, COLLABCAST_SOCKET_FILENAME));
     expect(paths.authoritySocketPath).toBe(join(runtimeRoot, 'authority.sock'));
     expect(paths.pidPath).toBe(join(runtimeRoot, PID_FILENAME));
   });
 
   it('derives the runtime directory from the project root when none is given', () => {
     const paths = resolveTransportPaths({ canonicalRoot: base, env: {} });
-    expect(paths.runtimeRoot).toBe(join(base, '.walkie-talkie', 'run'));
+    expect(paths.runtimeRoot).toBe(join(base, '.collabcast', 'run'));
   });
 
   it('prefers an explicit config.transport.socketPath over the default filename', () => {
@@ -91,11 +91,11 @@ describe('socket path guards', () => {
   it('rejects a path the kernel could not bind', () => {
     const tooLong = join(base, 'x'.repeat(MAX_SOCKET_PATH_BYTES + 1));
     expect(() => assertBindableSocketPath(tooLong)).toThrowError(/too long/);
-    expect(() => assertBindableSocketPath(join(runtimeRoot, WALKIE_SOCKET_FILENAME))).not.toThrow();
+    expect(() => assertBindableSocketPath(join(runtimeRoot, COLLABCAST_SOCKET_FILENAME))).not.toThrow();
   });
 
   it('creates the parent directory owner-only', () => {
-    const dir = ensureSocketDir(join(runtimeRoot, WALKIE_SOCKET_FILENAME));
+    const dir = ensureSocketDir(join(runtimeRoot, COLLABCAST_SOCKET_FILENAME));
     expect(dir).toBe(runtimeRoot);
     expect(statSync(runtimeRoot).mode & 0o777).toBe(SOCKET_DIR_MODE);
   });
@@ -103,14 +103,14 @@ describe('socket path guards', () => {
   it('re-tightens a runtime directory that was loosened out of band', () => {
     mkdirSync(runtimeRoot, { recursive: true });
     chmodSync(runtimeRoot, 0o755);
-    ensureSocketDir(join(runtimeRoot, WALKIE_SOCKET_FILENAME));
+    ensureSocketDir(join(runtimeRoot, COLLABCAST_SOCKET_FILENAME));
     expect(statSync(runtimeRoot).mode & 0o777).toBe(SOCKET_DIR_MODE);
   });
 });
 
 describe('stale socket reclamation', () => {
   it('reports no listener for an absent path and does not create one', async () => {
-    const path = join(runtimeRoot, WALKIE_SOCKET_FILENAME);
+    const path = join(runtimeRoot, COLLABCAST_SOCKET_FILENAME);
     expect(await probeSocket(path)).toBe(false);
     expect(await reclaimSocketPath(path)).toBe(false);
     expect(existsSync(path)).toBe(false);
@@ -118,7 +118,7 @@ describe('stale socket reclamation', () => {
 
   it('reclaims a socket file with no listener behind it', async () => {
     mkdirSync(runtimeRoot, { recursive: true, mode: SOCKET_DIR_MODE });
-    const path = join(runtimeRoot, WALKIE_SOCKET_FILENAME);
+    const path = join(runtimeRoot, COLLABCAST_SOCKET_FILENAME);
 
     await leaveStaleSocket(path);
     expect(existsSync(path)).toBe(true);
@@ -130,7 +130,7 @@ describe('stale socket reclamation', () => {
 
   it('refuses to unlink a socket with a LIVE listener', async () => {
     mkdirSync(runtimeRoot, { recursive: true, mode: SOCKET_DIR_MODE });
-    const path = join(runtimeRoot, WALKIE_SOCKET_FILENAME);
+    const path = join(runtimeRoot, COLLABCAST_SOCKET_FILENAME);
     const server = createNetServer((socket) => socket.end());
     await new Promise((resolve) => server.listen(path, resolve));
     try {
@@ -146,7 +146,7 @@ describe('stale socket reclamation', () => {
 
   it('never removes a non-socket occupying the path', async () => {
     mkdirSync(runtimeRoot, { recursive: true, mode: SOCKET_DIR_MODE });
-    const path = join(runtimeRoot, WALKIE_SOCKET_FILENAME);
+    const path = join(runtimeRoot, COLLABCAST_SOCKET_FILENAME);
     writeFileSync(path, 'not a socket');
     await expect(reclaimSocketPath(path)).rejects.toMatchObject({ code: 'conflict' });
     expect(existsSync(path)).toBe(true);
@@ -156,7 +156,7 @@ describe('stale socket reclamation', () => {
 describe('listen: unix socket', () => {
   it('binds the socket at 0600 inside a 0700 directory and serves requests', async () => {
     const listener = await startListener(tinyApp(), { config: transportConfig() });
-    const socketPath = join(runtimeRoot, WALKIE_SOCKET_FILENAME);
+    const socketPath = join(runtimeRoot, COLLABCAST_SOCKET_FILENAME);
 
     expect(listener.addresses.socket).toBe(socketPath);
     expect(listener.addresses.tcp).toBeNull();
@@ -183,7 +183,7 @@ describe('listen: unix socket', () => {
 
   it('reclaims a stale socket left by a crashed predecessor', async () => {
     mkdirSync(runtimeRoot, { recursive: true, mode: SOCKET_DIR_MODE });
-    const socketPath = join(runtimeRoot, WALKIE_SOCKET_FILENAME);
+    const socketPath = join(runtimeRoot, COLLABCAST_SOCKET_FILENAME);
     await leaveStaleSocket(socketPath);
     expect(existsSync(socketPath)).toBe(true);
 
@@ -298,12 +298,12 @@ describe('listen: loopback tcp', () => {
         config: transportConfig({ tcp: { enabled: true, host: '0.0.0.0', port: 0 } })
       })
     ).rejects.toMatchObject({ code: 'config_invalid' });
-    expect(existsSync(join(runtimeRoot, WALKIE_SOCKET_FILENAME))).toBe(false);
+    expect(existsSync(join(runtimeRoot, COLLABCAST_SOCKET_FILENAME))).toBe(false);
   });
 });
 
 /**
- * Leaves a real, orphaned socket inode at `path`, with the owner claim a crashed walkie
+ * Leaves a real, orphaned socket inode at `path`, with the owner claim a crashed collabcast
  * process would have left beside it.
  *
  * A Node `net.Server` unlinks its own socket file on `close()`, so a clean shutdown cannot

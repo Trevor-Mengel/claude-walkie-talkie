@@ -20,7 +20,7 @@
 import { describe, test, expect } from 'vitest';
 import { buildResources } from '../../src/mcp-server/resources.js';
 import { createCapabilityHolder } from '../../src/mcp-server/capability.js';
-import { walkieError } from '../../src/identity/errors.js';
+import { collabcastError } from '../../src/identity/errors.js';
 
 const TOKEN = 'SbS8xLmA9vTbNc4WkYz7RgHjDf1EoUiXaSlBn0MpQwE';
 const SELF = {
@@ -32,7 +32,7 @@ const SELF = {
   expiresAt: null
 };
 
-const INBOX = 'walkie://channel/inbox';
+const INBOX = 'collabcast://channel/inbox';
 
 function stubApi() {
   return {
@@ -52,7 +52,7 @@ async function harness({ openFails = [] } = {}) {
   const capability = createCapabilityHolder({
     api,
     tokenBox: { value: null },
-    namespace: 'walkie-test',
+    namespace: 'collabcast-test',
     env: {},
     warn: () => {}
   });
@@ -71,7 +71,7 @@ async function harness({ openFails = [] } = {}) {
       const index = opens;
       opens += 1;
       if (openFails.includes(index)) {
-        throw walkieError('unavailable', 'the walkie event feed refused the connection');
+        throw collabcastError('unavailable', 'the collabcast event feed refused the connection');
       }
       handlers.push({ onEvent, onError });
       return { close: () => closes.push(index) };
@@ -99,8 +99,8 @@ describe('subscribe validates the URI', () => {
     const h = await harness();
 
     for (const uri of [
-      'walkie://channel/nope',
-      'walkie://channel/inbox/extra',
+      'collabcast://channel/nope',
+      'collabcast://channel/inbox/extra',
       'file:///etc/passwd',
       'https://example.com/',
       '',
@@ -123,7 +123,7 @@ describe('subscribe validates the URI', () => {
 
     for (let round = 0; round < 5; round += 1) {
       for (const uri of real) await h.resources.subscribe({ params: { uri } });
-      await h.resources.subscribe({ params: { uri: 'walkie://channel/nope' } }).catch(() => {});
+      await h.resources.subscribe({ params: { uri: 'collabcast://channel/nope' } }).catch(() => {});
     }
 
     expect(h.resources.subscribed().sort()).toEqual([...real].sort());
@@ -159,12 +159,12 @@ describe('a faulted subscription is visible to the client', () => {
     await h.resources.subscribe({ params: { uri: INBOX } });
     const feed = h.latest();
 
-    feed.onError(walkieError('unavailable', 'the walkie event feed closed'));
+    feed.onError(collabcastError('unavailable', 'the collabcast event feed closed'));
 
     const first = h.logs()[0];
     expect(first, 'the client must be told the feed died').toBeDefined();
     expect(first.params.level).toBe('warning');
-    expect(first.params.logger).toBe('walkie.subscriptions');
+    expect(first.params.logger).toBe('collabcast.subscriptions');
     expect(first.params.data.live).toBe(false);
     expect(first.params.data.code).toBe('unavailable');
     // The message names the affected subscription so a client knows what went quiet.
@@ -174,7 +174,7 @@ describe('a faulted subscription is visible to the client', () => {
   test('the feed is re-established and the missed window is signalled', async () => {
     const h = await harness();
     await h.resources.subscribe({ params: { uri: INBOX } });
-    h.latest().onError(walkieError('unavailable', 'closed'));
+    h.latest().onError(collabcastError('unavailable', 'closed'));
 
     // The reconnect is a floating promise inside the error handler; let it settle.
     await new Promise((resolve) => setImmediate(resolve));
@@ -195,7 +195,7 @@ describe('a faulted subscription is visible to the client', () => {
   test('a reconnect that also fails is reported as terminal, never as silence', async () => {
     const h = await harness({ openFails: [1] });
     await h.resources.subscribe({ params: { uri: INBOX } });
-    h.latest().onError(walkieError('unavailable', 'closed'));
+    h.latest().onError(collabcastError('unavailable', 'closed'));
 
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -212,7 +212,7 @@ describe('a faulted subscription is visible to the client', () => {
   test('a re-subscribe after a terminal fault re-arms the feed', async () => {
     const h = await harness({ openFails: [1] });
     await h.resources.subscribe({ params: { uri: INBOX } });
-    h.latest().onError(walkieError('unavailable', 'closed'));
+    h.latest().onError(collabcastError('unavailable', 'closed'));
     await new Promise((resolve) => setImmediate(resolve));
     expect(h.resources.streamState()).toBe('faulted');
 
@@ -228,7 +228,7 @@ describe('a faulted subscription is visible to the client', () => {
     const feed = h.latest();
     await h.resources.unsubscribe({ params: { uri: INBOX } });
 
-    feed.onError(walkieError('unavailable', 'closed'));
+    feed.onError(collabcastError('unavailable', 'closed'));
     await new Promise((resolve) => setImmediate(resolve));
 
     // Nobody is listening, so there is nothing to warn about and nothing to reconnect for.
@@ -241,7 +241,7 @@ describe('read still refuses an unknown resource', () => {
   test('the same not_found, from the one validator both paths share', async () => {
     const h = await harness();
     await expect(
-      h.resources.read({ params: { uri: 'walkie://channel/nope' } })
+      h.resources.read({ params: { uri: 'collabcast://channel/nope' } })
     ).rejects.toMatchObject({ code: 'not_found' });
   });
 });

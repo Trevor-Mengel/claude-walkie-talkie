@@ -20,7 +20,7 @@ function load(contents, extraEnv = {}, onWarn) {
   writeIdentities(mapPath, contents);
   const warnings = [];
   const result = loadIdentities({
-    env: { WALKIE_IDENTITIES: mapPath, ...extraEnv },
+    env: { COLLABCAST_IDENTITIES: mapPath, ...extraEnv },
     onWarn: onWarn ?? ((m) => warnings.push(m))
   });
   return { result, warnings };
@@ -34,46 +34,46 @@ function expectConfigInvalid(fn) {
     thrown = err;
   }
   expect(thrown, 'expected a throw').toBeDefined();
-  expect(thrown.name).toBe('WalkieError');
+  expect(thrown.name).toBe('CollabcastError');
   expect(thrown.code).toBe('config_invalid');
   return thrown;
 }
 
 beforeEach(() => {
-  base = tmpRoot('walkie-identities-');
+  base = tmpRoot('collabcast-identities-');
   mapPath = join(base, 'identities.json');
 });
 
 afterEach(() => cleanup(base));
 
 describe('identitiesPath precedence', () => {
-  it('prefers WALKIE_IDENTITIES, then WALKIE_HOME, then HOME', () => {
+  it('prefers COLLABCAST_IDENTITIES, then COLLABCAST_HOME, then HOME', () => {
     expect(
       identitiesPath({
-        env: { WALKIE_IDENTITIES: '/x/custom.json', WALKIE_HOME: '/h', HOME: '/u' }
+        env: { COLLABCAST_IDENTITIES: '/x/custom.json', COLLABCAST_HOME: '/h', HOME: '/u' }
       })
-    ).toEqual({ path: '/x/custom.json', origin: 'WALKIE_IDENTITIES' });
+    ).toEqual({ path: '/x/custom.json', origin: 'COLLABCAST_IDENTITIES' });
 
-    expect(identitiesPath({ env: { WALKIE_HOME: '/h', HOME: '/u' } })).toEqual({
-      path: '/h/.walkie-talkie/identities.json',
-      origin: 'WALKIE_HOME'
+    expect(identitiesPath({ env: { COLLABCAST_HOME: '/h', HOME: '/u' } })).toEqual({
+      path: '/h/.collabcast/identities.json',
+      origin: 'COLLABCAST_HOME'
     });
 
     expect(identitiesPath({ env: { HOME: '/u' } })).toEqual({
-      path: '/u/.walkie-talkie/identities.json',
+      path: '/u/.collabcast/identities.json',
       origin: 'home'
     });
   });
 
-  it('loads from $WALKIE_HOME/.walkie-talkie/identities.json', () => {
+  it('loads from $COLLABCAST_HOME/.collabcast/identities.json', () => {
     const home = mkdirp(join(base, 'home'));
     const root = mkdirp(join(base, 'proj'));
     writeIdentities(
-      join(home, '.walkie-talkie', 'identities.json'),
-      map({ 'walkie-talkie': { canonicalRoot: root, registrations: [root] } })
+      join(home, '.collabcast', 'identities.json'),
+      map({ 'collabcast': { canonicalRoot: root, registrations: [root] } })
     );
-    const loaded = loadIdentities({ env: { WALKIE_HOME: home }, onWarn: () => {} });
-    expect(loaded.identities['walkie-talkie'].canonicalRoot).toBe(root);
+    const loaded = loadIdentities({ env: { COLLABCAST_HOME: home }, onWarn: () => {} });
+    expect(loaded.identities['collabcast'].canonicalRoot).toBe(root);
   });
 });
 
@@ -83,15 +83,15 @@ describe('loadIdentities', () => {
     const alt = mkdirp(join(base, 'checkouts', 'alt'));
     const { result } = load(
       map({
-        'walkie-talkie': {
+        'collabcast': {
           canonicalRoot: root,
           registrations: [root, alt, alt],
           paseoProjectKey: 'remote:github.com/owner/repo'
         }
       })
     );
-    const entry = result.identities['walkie-talkie'];
-    expect(entry.namespace).toBe('walkie-talkie');
+    const entry = result.identities['collabcast'];
+    expect(entry.namespace).toBe('collabcast');
     expect(entry.canonicalRoot).toBe(root);
     expect(entry.registrations).toEqual([root, alt]);
     expect(entry.paseoProjectKey).toBe('remote:github.com/owner/repo');
@@ -110,7 +110,7 @@ describe('loadIdentities', () => {
 
   it('rejects namespace keys that do not match the namespace grammar', () => {
     const root = mkdirp(join(base, 'proj'));
-    for (const bad of ['Walkie', '1walkie', 'walkie_talkie', '', 'a'.repeat(65)]) {
+    for (const bad of ['Collabcast', '1collabcast', 'collabcast_talkie', '', 'a'.repeat(65)]) {
       expectConfigInvalid(() =>
         load(map({ [bad]: { canonicalRoot: root, registrations: [root] } }))
       );
@@ -178,15 +178,15 @@ describe('loadIdentities', () => {
   it('rejects invalid JSON and a missing map', () => {
     writeFileSync(mapPath, '{ not json');
     expectConfigInvalid(() =>
-      loadIdentities({ env: { WALKIE_IDENTITIES: mapPath }, onWarn: () => {} })
+      loadIdentities({ env: { COLLABCAST_IDENTITIES: mapPath }, onWarn: () => {} })
     );
     const err = expectConfigInvalid(() =>
       loadIdentities({
-        env: { WALKIE_IDENTITIES: join(base, 'absent.json') },
+        env: { COLLABCAST_IDENTITIES: join(base, 'absent.json') },
         onWarn: () => {}
       })
     );
-    expect(err.message).toMatch(/no walkie identity map found/);
+    expect(err.message).toMatch(/no collabcast identity map found/);
   });
 
   // Writable and readable are different questions, and one mask cannot answer both.
@@ -205,7 +205,7 @@ describe('loadIdentities', () => {
     for (const mode of [0o620, 0o664, 0o666, 0o602]) {
       chmodSync(mapPath, mode);
       const err = expectConfigInvalid(() =>
-        loadIdentities({ env: { WALKIE_IDENTITIES: mapPath }, onWarn: () => {} })
+        loadIdentities({ env: { COLLABCAST_IDENTITIES: mapPath }, onWarn: () => {} })
       );
       expect(err.message).toMatch(/group\/other-writable/);
       expect(err.message).toContain(mapPath);
@@ -227,7 +227,7 @@ describe('loadIdentities', () => {
       /** @type {string[]} */
       const warnings = [];
       const loaded = loadIdentities({
-        env: { WALKIE_IDENTITIES: mapPath },
+        env: { COLLABCAST_IDENTITIES: mapPath },
         onWarn: (m) => warnings.push(m)
       });
       expect(loaded.identities.ns.canonicalRoot).toBe(root);
@@ -239,14 +239,14 @@ describe('loadIdentities', () => {
     }
   });
 
-  it('loads a 0600 map silently — the mode `walkie init` writes', () => {
+  it('loads a 0600 map silently — the mode `collabcast init` writes', () => {
     const root = mkdirp(join(base, 'proj'));
     writeIdentities(mapPath, map({ ns: { canonicalRoot: root, registrations: [root] } }));
     chmodSync(mapPath, 0o600);
     /** @type {string[]} */
     const warnings = [];
     expect(
-      loadIdentities({ env: { WALKIE_IDENTITIES: mapPath }, onWarn: (m) => warnings.push(m) })
+      loadIdentities({ env: { COLLABCAST_IDENTITIES: mapPath }, onWarn: (m) => warnings.push(m) })
     ).toBeTruthy();
     expect(warnings).toEqual([]);
   });

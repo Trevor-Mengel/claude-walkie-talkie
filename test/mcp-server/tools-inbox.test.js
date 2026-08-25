@@ -1,10 +1,10 @@
-// `walkie_inbox` is NON-MUTATING. This assertion is deliberately the inverse of v0.2's.
+// `collabcast_inbox` is NON-MUTATING. This assertion is deliberately the inverse of v0.2's.
 //
 // The v0.2 test read:
 //
 //     test('returns the operator-posted message and then returns empty', ...)
 //
-// It posted one message, called `walkie_inbox` twice, and asserted the second call saw nothing.
+// It posted one message, called `collabcast_inbox` twice, and asserted the second call saw nothing.
 // That was consume-on-read, and it was the bug: `GET /sessions/:id/inbox` advanced the addressed
 // session's read cursor as a side effect of answering. Three consequences followed —
 //
@@ -15,7 +15,7 @@
 //      looked at.
 //
 // So the property is inverted here: reading is idempotent, and the ONLY thing that advances a
-// cursor is an explicit `walkie_ack`. The old assertion survives in a different place — after the
+// cursor is an explicit `collabcast_ack`. The old assertion survives in a different place — after the
 // ack, the inbox is empty, which is what "then returns empty" should always have meant.
 
 import { describe, test, expect } from 'vitest';
@@ -45,9 +45,9 @@ async function postAsRoot(stack, body, type) {
   return res.body.id;
 }
 
-describe('walkie_inbox', () => {
+describe('collabcast_inbox', () => {
   test('returns the posted message, and keeps returning it: reading acknowledges nothing', async () => {
-    const { stack, client, hub } = await harness('walkie-inbox1');
+    const { stack, client, hub } = await harness('collabcast-inbox1');
     try {
       await postAsRoot(stack, 'hello');
 
@@ -72,8 +72,8 @@ describe('walkie_inbox', () => {
     }
   }, 20000);
 
-  test('an explicit walkie_ack is what advances the cursors and empties the inbox', async () => {
-    const { stack, client, hub } = await harness('walkie-inbox2');
+  test('an explicit collabcast_ack is what advances the cursors and empties the inbox', async () => {
+    const { stack, client, hub } = await harness('collabcast-inbox2');
     try {
       await postAsRoot(stack, 'first');
       await postAsRoot(stack, 'second');
@@ -108,7 +108,7 @@ describe('walkie_inbox', () => {
   }, 20000);
 
   test('acking an earlier id is a safe no-op, so a retry cannot rewind the queue', async () => {
-    const { stack, client, hub } = await harness('walkie-inbox3');
+    const { stack, client, hub } = await harness('collabcast-inbox3');
     try {
       const a = await postAsRoot(stack, 'a');
       const b = await postAsRoot(stack, 'b');
@@ -124,7 +124,7 @@ describe('walkie_inbox', () => {
   }, 20000);
 
   test('mark_read=false acknowledges without moving the read cursor', async () => {
-    const { stack, client, hub } = await harness('walkie-inbox4');
+    const { stack, client, hub } = await harness('collabcast-inbox4');
     try {
       const only = await postAsRoot(stack, 'only');
 
@@ -139,7 +139,7 @@ describe('walkie_inbox', () => {
 
   test("one principal's ack leaves every other principal's inbox untouched", async () => {
     const stack = await createStack({
-      namespace: 'walkie-inbox5',
+      namespace: 'collabcast-inbox5',
       roles: [
         'root',
         { name: 'hub', role: 'goal_hub' },
@@ -171,7 +171,7 @@ describe('walkie_inbox', () => {
   // category filter ran before or after it. The acked case is the whole point, and it is
   // here rather than in a sibling test so the blind spot cannot survive the repair.
   test('memory updates are excluded by default, included on request, and survive an ack', async () => {
-    const { stack, client, hub } = await harness('walkie-inbox6');
+    const { stack, client, hub } = await harness('collabcast-inbox6');
     try {
       const one = await postAsRoot(stack, 'ordinary');
       const noted = await postAsRoot(stack, 'remember this', 'memory-update');
@@ -185,7 +185,7 @@ describe('walkie_inbox', () => {
         (await client.inbox({ include_memory_updates: true })).messages.map((m) => m.body.trim())
       ).toEqual(['ordinary', 'remember this', 'later']);
 
-      // Ack the last message the model was actually handed — exactly what the walkie_ack
+      // Ack the last message the model was actually handed — exactly what the collabcast_ack
       // description instructs. Under one shared mark this buried `noted` for good.
       await client.ack(three);
       expect((await client.inbox()).messages).toEqual([]);

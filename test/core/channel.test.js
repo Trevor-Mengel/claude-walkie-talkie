@@ -16,7 +16,7 @@ describe('channel parse', () => {
     project = createTmpProject({ projectName: 'cloutdesk', operator: 'Trevor Mengel' });
     const text = readFileSync(project.channelPath, 'utf8');
     const out = parseChannel(text);
-    expect(out.header).toContain('Walkie-Talkie Channel: cloutdesk');
+    expect(out.header).toContain('Collabcast Channel: cloutdesk');
     expect(out.header).toContain('Operator:** Trevor Mengel');
     expect(out.headerEndIdx).toBeGreaterThan(0);
     expect(out.messages).toEqual([]);

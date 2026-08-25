@@ -22,14 +22,14 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const MARKER = '.walkie-run';
+const MARKER = '.collabcast-run';
 
 /**
  * Stamp a freshly created fixture directory with the current run's id. A no-op
  * when the run id is absent, which keeps the module usable outside the harness.
  */
 export function markFixtureDir(root, env = process.env) {
-  const runId = env.WALKIE_ISOLATION_ROOT;
+  const runId = env.COLLABCAST_ISOLATION_ROOT;
   if (!runId) return;
   writeFileSync(join(root, MARKER), `${runId}\n`, { mode: 0o600 });
 }
@@ -45,7 +45,7 @@ export function markFixtureDir(root, env = process.env) {
  * own: removing the fixture removes them, and stamping them would report one
  * leak as several.
  *
- * @param {string} prefix `mkdtemp` prefix, e.g. `'walkie-store-'`.
+ * @param {string} prefix `mkdtemp` prefix, e.g. `'collabcast-store-'`.
  * @returns {string} the created directory.
  */
 export function createFixtureDir(prefix) {
@@ -60,7 +60,7 @@ export function createFixtureDir(prefix) {
  * half-removed tree — are never reported.
  */
 export function findLeakedFixtureDirs(env = process.env) {
-  const runId = env.WALKIE_ISOLATION_ROOT;
+  const runId = env.COLLABCAST_ISOLATION_ROOT;
   if (!runId) return [];
   const leaked = [];
   const temp = tmpdir();

@@ -16,7 +16,7 @@
  * with an unconsumed approval.
  */
 
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { sha256 } from '../store/digest.js';
 import {
   audit,
@@ -32,7 +32,7 @@ import {
 import { assertEnrollable, ENROLL_ROLE, requireCodeTtlSeconds, scopesForRole } from './policy.js';
 
 /** Domain separator, so an approval digest can never be replayed as some other digest. */
-export const DIGEST_DOMAIN = 'walkie.enroll.v1';
+export const DIGEST_DOMAIN = 'collabcast.enroll.v1';
 
 /** The attestation every hook-approved artefact carries. */
 export const ATTESTATION_KIND = 'omp_hook_confirm';
@@ -102,7 +102,7 @@ function asCodeFailure(fn) {
     return fn();
   } catch (err) {
     if (err && CODE_FAILURE_CODES.has(err.code)) {
-      throw new WalkieError('permit_invalid', INVALID_CODE_MESSAGE);
+      throw new CollabcastError('permit_invalid', INVALID_CODE_MESSAGE);
     }
     throw err;
   }
@@ -248,13 +248,13 @@ export function exchangeEnrollmentCode(store, code) {
  */
 function redeem(store, code) {
   if (typeof code !== 'string' || code.length === 0) {
-    throw new WalkieError('permit_invalid', INVALID_CODE_MESSAGE);
+    throw new CollabcastError('permit_invalid', INVALID_CODE_MESSAGE);
   }
 
   return store.tx((tx) => {
     const approval = asCodeFailure(() => consumeEnrollmentCode(tx, code));
     if (approval.kind !== 'enrollment' || approval.attestationKind !== ATTESTATION_KIND) {
-      throw new WalkieError('permit_invalid', INVALID_CODE_MESSAGE);
+      throw new CollabcastError('permit_invalid', INVALID_CODE_MESSAGE);
     }
     asCodeFailure(() => consumeApproval(tx, approval.id, APPROVAL_CONSUMER));
 
@@ -263,14 +263,14 @@ function redeem(store, code) {
     if (!scopes || scopes.length === 0 || !Number.isInteger(ttlSeconds)) {
       // An enrollment approval without a recorded grant cannot be honoured: there is
       // nothing to prove the operator saw these scopes.
-      throw new WalkieError('permit_invalid', INVALID_CODE_MESSAGE);
+      throw new CollabcastError('permit_invalid', INVALID_CODE_MESSAGE);
     }
     // Re-check against policy at redemption time, so an approval recorded under an
     // older, wider allowlist cannot be redeemed after the allowlist narrows.
     const allowed = new Set(scopesForRole(ENROLL_ROLE));
     const widened = scopes.filter((scope) => !allowed.has(scope));
     if (widened.length > 0) {
-      throw new WalkieError('forbidden', 'approved scopes are no longer permitted for this role', {
+      throw new CollabcastError('forbidden', 'approved scopes are no longer permitted for this role', {
         scopes: widened
       });
     }

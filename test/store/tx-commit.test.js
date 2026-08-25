@@ -140,7 +140,7 @@ describe('runTx exit invariant', () => {
     // and neither closes it.
     const db = stubHandle({ inTransaction: (calls) => calls.length > 0 });
 
-    expect(() => runTx(db, 'walkie-talkie', () => 'body ran')).toThrowError(/left open after COMMIT/);
+    expect(() => runTx(db, 'collabcast', () => 'body ran')).toThrowError(/left open after COMMIT/);
     expect(db.calls).toEqual(['BEGIN IMMEDIATE', 'COMMIT', 'ROLLBACK']);
     // An unclosable transaction on a live connection would be joined by the next
     // caller, so the handle is closed rather than left silently lying.
@@ -153,7 +153,7 @@ describe('runTx exit invariant', () => {
   // recovers from the inner error instead of rolling back.
   test('joins an already-open transaction with a savepoint, never its own BEGIN or COMMIT', () => {
     const db = stubHandle({ inTransaction: () => true });
-    expect(runTx(db, 'walkie-talkie', (tx) => tx.namespace)).toBe('walkie-talkie');
+    expect(runTx(db, 'collabcast', (tx) => tx.namespace)).toBe('collabcast');
     expect(db.calls).toEqual([expect.stringMatching(/^SAVEPOINT /), expect.stringMatching(/^RELEASE /)]);
     expect(db.calls.join(' ')).not.toMatch(/BEGIN|COMMIT/);
     expect(db.open).toBe(true);
@@ -163,7 +163,7 @@ describe('runTx exit invariant', () => {
   // wrong (innermost) frame. Distinct per nesting level, checked rather than assumed.
   test('each nested unit gets its own savepoint name', () => {
     const db = stubHandle({ inTransaction: () => true });
-    runTx(db, 'walkie-talkie', () => runTx(db, 'walkie-talkie', () => null));
+    runTx(db, 'collabcast', () => runTx(db, 'collabcast', () => null));
     const names = db.calls
       .filter((c) => c.startsWith('SAVEPOINT '))
       .map((c) => c.slice('SAVEPOINT '.length));
@@ -177,7 +177,7 @@ describe('runTx exit invariant', () => {
   test('a throwing nested unit rolls back to its savepoint and leaves the outer open', () => {
     const db = stubHandle({ inTransaction: () => true });
     expect(() =>
-      runTx(db, 'walkie-talkie', () => {
+      runTx(db, 'collabcast', () => {
         throw new Error('inner boom');
       })
     ).toThrowError('inner boom');

@@ -14,7 +14,7 @@ import { cleanup, tmpRoot } from '../identity/tmp-git.js';
 let root;
 
 function base(overrides = {}) {
-  return { schemaVersion: CONFIG_SCHEMA_VERSION, namespace: 'walkie-talkie', ...overrides };
+  return { schemaVersion: CONFIG_SCHEMA_VERSION, namespace: 'collabcast', ...overrides };
 }
 
 function validate(raw, opts = {}) {
@@ -29,13 +29,13 @@ function expectInvalid(raw, opts = {}) {
     thrown = err;
   }
   expect(thrown, `expected config_invalid for ${JSON.stringify(raw)}`).toBeDefined();
-  expect(thrown.name).toBe('WalkieError');
+  expect(thrown.name).toBe('CollabcastError');
   expect(thrown.code).toBe('config_invalid');
   return thrown;
 }
 
 beforeEach(() => {
-  root = tmpRoot('walkie-config-');
+  root = tmpRoot('collabcast-config-');
 });
 
 afterEach(() => cleanup(root));
@@ -71,7 +71,7 @@ describe('DEFAULT_CONFIG owns every default', () => {
   it('applies every default for a minimal config', () => {
     expect(validate(base())).toEqual({
       schemaVersion: 3,
-      namespace: 'walkie-talkie',
+      namespace: 'collabcast',
       mode: DEFAULT_CONFIG.mode,
       transport: {
         unixSocket: true,
@@ -128,7 +128,7 @@ describe('retention validation', () => {
 
 describe('historyDir containment', () => {
   it('rejects a historyDir outside canonicalRoot', () => {
-    const outside = tmpRoot('walkie-outside-');
+    const outside = tmpRoot('collabcast-outside-');
     try {
       const err = expectInvalid(base({ retention: { historyDir: join(outside, 'history') } }));
       expect(err.message).toMatch(/must be inside canonicalRoot/);
@@ -144,7 +144,7 @@ describe('historyDir containment', () => {
 
   it('rejects a historyDir that contains, equals, or nests under the live store dir', () => {
     const live = storeDir(root);
-    for (const historyDir of [join(root, '.walkie-talkie'), live, join(live, 'nested')]) {
+    for (const historyDir of [join(root, '.collabcast'), live, join(live, 'nested')]) {
       const err = expectInvalid(base({ retention: { historyDir } }));
       expect(err.message).toMatch(/must not overlap the live store directory/);
     }
@@ -155,7 +155,7 @@ describe('historyDir containment', () => {
       validate(base({ retention: { historyDir: join(root, 'snapshots') } })).retention.historyDir
     ).toBe(join(root, 'snapshots'));
     expect(
-      validate(base({ retention: { historyDir: '.walkie-talkie/history' } })).retention.historyDir
+      validate(base({ retention: { historyDir: '.collabcast/history' } })).retention.historyDir
     ).toBe(defaultHistoryDir(root));
   });
 
@@ -207,7 +207,7 @@ describe('transport validation', () => {
   // Port 0 asks the kernel for an ephemeral port. With no Unix socket and no port file,
   // `resolveClientContext` hands every client `{ host, port: 0 }`, so the service binds,
   // reports healthy, and every call fails `unavailable` — telling the operator to run
-  // `walkie start` for a service that is already running.
+  // `collabcast start` for a service that is already running.
   it('rejects a tcp-only transport left on the ephemeral port', () => {
     const err = expectInvalid(
       base({ transport: { unixSocket: false, tcp: { enabled: true, port: 0 } } })
@@ -246,7 +246,7 @@ describe('transport validation', () => {
   });
 
   it('requires socketPath to be absolute when set', () => {
-    expectInvalid(base({ transport: { socketPath: 'walkie.sock' } }));
+    expectInvalid(base({ transport: { socketPath: 'collabcast.sock' } }));
     expectInvalid(base({ transport: { socketPath: '' } }));
     expectInvalid(base({ transport: { socketPath: 42 } }));
     expect(validate(base({ transport: { socketPath: null } })).transport.socketPath).toBeNull();
@@ -256,32 +256,32 @@ describe('transport validation', () => {
     const loose = join(root, 'loose-run');
     mkdirSync(loose, { recursive: true });
     chmodSync(loose, 0o755);
-    expectInvalid(base({ transport: { socketPath: join(loose, 'walkie.sock') } }));
+    expectInvalid(base({ transport: { socketPath: join(loose, 'collabcast.sock') } }));
     chmodSync(loose, 0o700);
     expect(
-      validate(base({ transport: { socketPath: join(loose, 'walkie.sock') } })).transport.socketPath
-    ).toBe(join(loose, 'walkie.sock'));
+      validate(base({ transport: { socketPath: join(loose, 'collabcast.sock') } })).transport.socketPath
+    ).toBe(join(loose, 'collabcast.sock'));
   });
 
   it('accepts a socketPath whose parent does not exist yet', () => {
-    const path = join(root, 'not-yet', 'walkie.sock');
+    const path = join(root, 'not-yet', 'collabcast.sock');
     expect(validate(base({ transport: { socketPath: path } })).transport.socketPath).toBe(path);
   });
 });
 
 describe('envelope-level validation', () => {
   it('requires schemaVersion 3', () => {
-    expectInvalid({ schemaVersion: 2, namespace: 'walkie-talkie' });
-    expectInvalid({ namespace: 'walkie-talkie' });
-    expectInvalid({ schemaVersion: '3', namespace: 'walkie-talkie' });
+    expectInvalid({ schemaVersion: 2, namespace: 'collabcast' });
+    expectInvalid({ namespace: 'collabcast' });
+    expectInvalid({ schemaVersion: '3', namespace: 'collabcast' });
   });
 
   it('requires a well-formed namespace and rejects a mismatch with the resolved one', () => {
-    expectInvalid(base({ namespace: 'Walkie' }));
+    expectInvalid(base({ namespace: 'Collabcast' }));
     expectInvalid({ schemaVersion: 3 });
     const err = expectInvalid(base(), { expectNamespace: 'other-ns' });
     expect(err.message).toMatch(/resolves to other-ns/);
-    expect(validate(base(), { expectNamespace: 'walkie-talkie' }).namespace).toBe('walkie-talkie');
+    expect(validate(base(), { expectNamespace: 'collabcast' }).namespace).toBe('collabcast');
   });
 
   it('rejects unknown top-level keys, bad modes, and non-objects', () => {

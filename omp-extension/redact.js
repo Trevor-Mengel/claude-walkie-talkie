@@ -27,7 +27,7 @@ const SECRET_KEYS = new Set([
 /**
  * Structural fields the audit log exists to record. Their string values are kept
  * verbatim, because the value-shape rule below would otherwise eat exactly the field
- * that matters most: a namespaced tool name like `mcp__walkie-talkie_walkie_enroll` is
+ * that matters most: a namespaced tool name like `mcp__collabcast_collabcast_enroll` is
  * indistinguishable from a base64url blob by shape alone. The hook never writes a secret
  * under one of these keys — that is what makes the exemption safe rather than convenient.
  */
@@ -45,7 +45,7 @@ const STRUCTURAL_KEYS = new Set([
 
 /**
  * A base64url-ish blob: the shape of a capability token, an enrollment code, or a
- * base64url digest. Short opaque words (`Approve`, `listener`, `walkie-talkie`) stay
+ * base64url digest. Short opaque words (`Approve`, `listener`, `collabcast`) stay
  * readable because they fall under the length floor.
  */
 const TOKEN_SHAPED = /^[A-Za-z0-9_-]{20,}$/;

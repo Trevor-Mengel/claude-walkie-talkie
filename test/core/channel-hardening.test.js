@@ -11,7 +11,7 @@ import {
 } from '../../src/core/channel.js';
 
 const TEMPLATE = [
-  '# Walkie-Talkie Channel: hardening',
+  '# Collabcast Channel: hardening',
   '',
   '**Operator:** Test Operator',
   '',
@@ -24,9 +24,9 @@ const TEMPLATE = [
 const roots = [];
 
 async function makeChannel() {
-  const root = createFixtureDir('walkie-core-hardening-');
+  const root = createFixtureDir('collabcast-core-hardening-');
   roots.push(root);
-  const wtDir = join(root, '.walkie-talkie');
+  const wtDir = join(root, '.collabcast');
   await mkdir(join(wtDir, '.sessions'), { recursive: true });
   const channelPath = join(wtDir, 'channel.md');
   await writeFile(channelPath, TEMPLATE, 'utf8');

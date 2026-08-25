@@ -102,7 +102,7 @@ describe('store public surface', () => {
       }
     });
     expect(
-      store.toEnvelope(new Error('SQLITE_CANTOPEN: /Users/someone/.walkie-talkie/store'))
+      store.toEnvelope(new Error('SQLITE_CANTOPEN: /Users/someone/.collabcast/store'))
     ).toEqual({
       error: { code: 'internal', message: 'internal error' }
     });

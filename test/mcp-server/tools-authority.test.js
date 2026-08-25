@@ -7,7 +7,7 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { buildTools, LEGACY_AUTHORITY_KEYS } from '../../src/mcp-server/tools.js';
 import { createCapabilityHolder } from '../../src/mcp-server/capability.js';
-import { walkieError } from '../../src/identity/errors.js';
+import { collabcastError } from '../../src/identity/errors.js';
 
 const TOKEN = 'PsQ2xLmA9vTbNc4WkYz7RgHjDf1EoUiXaSlBn0MpQwE';
 const CODE = 'Ab3dEf6hIj9lMn2pQr5tUv8xYz1BcDe4FgH7jKl0MnO';
@@ -66,7 +66,7 @@ async function activeHolder(api) {
   const holder = createCapabilityHolder({
     api,
     tokenBox,
-    namespace: 'walkie-test',
+    namespace: 'collabcast-test',
     env: {},
     warn: () => {}
   });
@@ -83,42 +83,42 @@ function payloadOf(result) {
 }
 
 describe('tool inventory', () => {
-  test('the eight v0.2 names survive, plus walkie_enroll and walkie_ack', async () => {
+  test('the eight v0.2 names survive, plus collabcast_enroll and collabcast_ack', async () => {
     const api = recordingApi();
     const { holder } = await activeHolder(api);
-    const names = buildTools({ api, capability: holder, namespace: 'walkie-test' })
+    const names = buildTools({ api, capability: holder, namespace: 'collabcast-test' })
       .list()
       .map((t) => t.name)
       .sort();
     expect(names).toEqual([
-      'walkie_ack',
-      'walkie_archive',
-      'walkie_edit',
-      'walkie_enroll',
-      'walkie_inbox',
-      'walkie_read',
-      'walkie_rename',
-      'walkie_reply',
-      'walkie_sessions',
-      'walkie_talk'
+      'collabcast_ack',
+      'collabcast_archive',
+      'collabcast_edit',
+      'collabcast_enroll',
+      'collabcast_inbox',
+      'collabcast_read',
+      'collabcast_rename',
+      'collabcast_reply',
+      'collabcast_sessions',
+      'collabcast_talk'
     ]);
   });
 
-  test('walkie_inbox keeps its v0.2 input schema exactly', async () => {
+  test('collabcast_inbox keeps its v0.2 input schema exactly', async () => {
     const api = recordingApi();
     const { holder } = await activeHolder(api);
-    const inbox = buildTools({ api, capability: holder, namespace: 'walkie-test' })
+    const inbox = buildTools({ api, capability: holder, namespace: 'collabcast-test' })
       .list()
-      .find((t) => t.name === 'walkie_inbox');
+      .find((t) => t.name === 'collabcast_inbox');
     expect(Object.keys(inbox.inputSchema.properties)).toEqual(['include_memory_updates']);
   });
 
-  test('walkie_enroll never advertises enrollmentCode as a model input', async () => {
+  test('collabcast_enroll never advertises enrollmentCode as a model input', async () => {
     const api = recordingApi();
     const { holder } = await activeHolder(api);
-    const enroll = buildTools({ api, capability: holder, namespace: 'walkie-test' })
+    const enroll = buildTools({ api, capability: holder, namespace: 'collabcast-test' })
       .list()
-      .find((t) => t.name === 'walkie_enroll');
+      .find((t) => t.name === 'collabcast_enroll');
     expect(Object.keys(enroll.inputSchema.properties)).not.toContain('enrollmentCode');
     expect(enroll.inputSchema.additionalProperties).toBe(false);
   });
@@ -131,33 +131,33 @@ describe('server-derived identity', () => {
   beforeEach(async () => {
     api = recordingApi();
     const { holder } = await activeHolder(api);
-    tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
   });
 
-  test('walkie_talk sends body, type and replyTo and no authority field at all', async () => {
-    await callTool(tools, 'walkie_talk', { body: 'hello', type: 'question' });
+  test('collabcast_talk sends body, type and replyTo and no authority field at all', async () => {
+    await callTool(tools, 'collabcast_talk', { body: 'hello', type: 'question' });
     const post = api.calls.find((c) => c.name === 'post');
     expect(post.args[0]).toEqual({ body: 'hello', type: 'question', replyTo: undefined });
     const sent = JSON.stringify(post.args[0]);
     for (const key of LEGACY_AUTHORITY_KEYS) expect(sent).not.toContain(key);
   });
 
-  test('walkie_reply sends only reply content', async () => {
-    await callTool(tools, 'walkie_reply', { reply_to: '01HZZ', body: 'ack' });
+  test('collabcast_reply sends only reply content', async () => {
+    await callTool(tools, 'collabcast_reply', { reply_to: '01HZZ', body: 'ack' });
     const post = api.calls.find((c) => c.name === 'post');
     expect(post.args[0]).toEqual({ body: 'ack', type: 'reply', replyTo: '01HZZ' });
   });
 
-  test('walkie_edit and walkie_archive no longer assert who is acting', async () => {
-    await callTool(tools, 'walkie_edit', { id: '01HZZ', body: 'fixed' });
-    await callTool(tools, 'walkie_archive', { id: '01HZZ', reason: 'stale' });
+  test('collabcast_edit and collabcast_archive no longer assert who is acting', async () => {
+    await callTool(tools, 'collabcast_edit', { id: '01HZZ', body: 'fixed' });
+    await callTool(tools, 'collabcast_archive', { id: '01HZZ', reason: 'stale' });
     expect(api.calls.find((c) => c.name === 'edit').args[1]).toEqual({ body: 'fixed' });
     expect(api.calls.find((c) => c.name === 'archive').args[1]).toEqual({ reason: 'stale' });
   });
 
   test('a caller that tries to state its own identity is refused with the offending keys', async () => {
     for (const key of LEGACY_AUTHORITY_KEYS) {
-      const result = await callTool(tools, 'walkie_talk', { body: 'x', [key]: 'operator' });
+      const result = await callTool(tools, 'collabcast_talk', { body: 'x', [key]: 'operator' });
       expect(result.isError).toBe(true);
       const payload = payloadOf(result);
       expect(payload.code).toBe('invalid_request');
@@ -168,12 +168,12 @@ describe('server-derived identity', () => {
 });
 
 describe('reading never writes', () => {
-  test('walkie_inbox performs exactly one non-mutating call', async () => {
+  test('collabcast_inbox performs exactly one non-mutating call', async () => {
     const api = recordingApi();
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    const result = await callTool(tools, 'walkie_inbox', {});
+    const result = await callTool(tools, 'collabcast_inbox', {});
 
     expect(api.names().filter((n) => n !== 'self')).toEqual(['inbox']);
     expect(api.names()).not.toContain('markRead');
@@ -181,12 +181,12 @@ describe('reading never writes', () => {
     expect(payloadOf(result).lastReadId).toBe(ACK_ID);
   });
 
-  test('walkie_ack is the only path that moves a cursor, and it moves both by default', async () => {
+  test('collabcast_ack is the only path that moves a cursor, and it moves both by default', async () => {
     const api = recordingApi();
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    const result = await callTool(tools, 'walkie_ack', { id: ACK_ID });
+    const result = await callTool(tools, 'collabcast_ack', { id: ACK_ID });
 
     // Acknowledgement lands FIRST and the read cursor follows. The order is load-bearing:
     // `ack` is the durable fact the caller asked for, so if the second call fails the tool can
@@ -202,9 +202,9 @@ describe('reading never writes', () => {
   test('mark_read:false acknowledges without touching the read cursor', async () => {
     const api = recordingApi();
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    await callTool(tools, 'walkie_ack', { id: ACK_ID, mark_read: false });
+    await callTool(tools, 'collabcast_ack', { id: ACK_ID, mark_read: false });
 
     expect(api.names().filter((n) => n !== 'self')).toEqual(['ack']);
   });
@@ -213,10 +213,10 @@ describe('reading never writes', () => {
   test('anything that is not a message id is refused locally', async () => {
     const api = recordingApi();
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
     for (const id of [7, 'later', ACK_ID.toLowerCase(), `${ACK_ID}X`, null]) {
-      const result = await callTool(tools, 'walkie_ack', { id });
+      const result = await callTool(tools, 'collabcast_ack', { id });
       expect(payloadOf(result).code, `ack ${String(id)}`).toBe('invalid_request');
     }
     expect(api.names()).not.toContain('ack');
@@ -224,10 +224,10 @@ describe('reading never writes', () => {
 });
 
 describe('structured refusals', () => {
-  test('permit_required has one shape, shared by walkie_talk and walkie_reply', async () => {
+  test('permit_required has one shape, shared by collabcast_talk and collabcast_reply', async () => {
     const reject = () =>
       Promise.reject(
-        walkieError('permit_required', 'an operator permit is required to publish', {
+        collabcastError('permit_required', 'an operator permit is required to publish', {
           operation: 'channel.publish'
         })
       );
@@ -236,16 +236,16 @@ describe('structured refusals', () => {
     const talkTools = buildTools({
       api: talkApi,
       capability: (await activeHolder(talkApi)).holder,
-      namespace: 'walkie-test'
+      namespace: 'collabcast-test'
     });
     const replyTools = buildTools({
       api: replyApi,
       capability: (await activeHolder(replyApi)).holder,
-      namespace: 'walkie-test'
+      namespace: 'collabcast-test'
     });
 
-    const fromTalk = await callTool(talkTools, 'walkie_talk', { body: 'x' });
-    const fromReply = await callTool(replyTools, 'walkie_reply', { reply_to: '01H', body: 'x' });
+    const fromTalk = await callTool(talkTools, 'collabcast_talk', { body: 'x' });
+    const fromReply = await callTool(replyTools, 'collabcast_reply', { reply_to: '01H', body: 'x' });
 
     expect(payloadOf(fromTalk)).toEqual(payloadOf(fromReply));
     expect(Object.keys(payloadOf(fromTalk)).sort()).toEqual(['code', 'detail', 'message', 'status']);
@@ -255,13 +255,13 @@ describe('structured refusals', () => {
   });
 
   test('403 not_owner reads as an explanation, not an HTTP string', async () => {
-    const err = walkieError('not_owner', 'only the author may edit a message', { id: '01H' });
+    const err = collabcastError('not_owner', 'only the author may edit a message', { id: '01H' });
     err.status = 403;
     const api = recordingApi({ edit: () => Promise.reject(err) });
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    const result = await callTool(tools, 'walkie_edit', { id: '01H', body: 'x' });
+    const result = await callTool(tools, 'collabcast_edit', { id: '01H', body: 'x' });
     const payload = payloadOf(result);
 
     expect(result.isError).toBe(true);
@@ -272,62 +272,62 @@ describe('structured refusals', () => {
 
   test('archive explains the moderation exception', async () => {
     const api = recordingApi({
-      archive: () => Promise.reject(walkieError('not_owner', 'not the author', { id: '01H' }))
+      archive: () => Promise.reject(collabcastError('not_owner', 'not the author', { id: '01H' }))
     });
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    const payload = payloadOf(await callTool(tools, 'walkie_archive', { id: '01H' }));
+    const payload = payloadOf(await callTool(tools, 'collabcast_archive', { id: '01H' }));
     expect(payload.code).toBe('not_owner');
     expect(payload.hint).toMatch(/operator moderating/);
   });
 
   test('409 conflict on rename says the alias is not being taken from anyone', async () => {
     const api = recordingApi({
-      setAlias: () => Promise.reject(walkieError('conflict', 'alias already in use'))
+      setAlias: () => Promise.reject(collabcastError('conflict', 'alias already in use'))
     });
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    const payload = payloadOf(await callTool(tools, 'walkie_rename', { alias: 'builder' }));
+    const payload = payloadOf(await callTool(tools, 'collabcast_rename', { alias: 'builder' }));
     expect(payload.code).toBe('conflict');
     expect(payload.hint).toMatch(/will not be taken from them/);
     expect(payload.hint).toContain('builder');
   });
 
-  test('an unexpected non-walkie throw never leaks its message', async () => {
+  test('an unexpected non-collabcast throw never leaks its message', async () => {
     const api = recordingApi({
-      latest: () => Promise.reject(new Error('ENOENT /Users/someone/.walkie-talkie/store/db'))
+      latest: () => Promise.reject(new Error('ENOENT /Users/someone/.collabcast/store/db'))
     });
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    const result = await callTool(tools, 'walkie_read', {});
+    const result = await callTool(tools, 'collabcast_read', {});
     expect(payloadOf(result)).toEqual({
       status: 'error',
-      tool: 'walkie_read',
+      tool: 'collabcast_read',
       code: 'internal',
-      message: 'walkie_read failed unexpectedly'
+      message: 'collabcast_read failed unexpectedly'
     });
   });
 });
 
-describe('walkie_enroll', () => {
+describe('collabcast_enroll', () => {
   test('a model-supplied enrollment code is refused before anything is sent', async () => {
     const api = recordingApi();
     const tokenBox = { value: null };
     const holder = createCapabilityHolder({
       api,
       tokenBox,
-      namespace: 'walkie-test',
+      namespace: 'collabcast-test',
       env: {},
       warn: () => {}
     });
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
     for (const invented of ['please-let-me-in', '123456', 'enrollment-code', CODE.slice(0, 20)]) {
-      const result = await callTool(tools, 'walkie_enroll', {
-        namespace: 'walkie-test',
+      const result = await callTool(tools, 'collabcast_enroll', {
+        namespace: 'collabcast-test',
         role: 'root',
         scopes: ['channel:read'],
         enrollmentCode: invented
@@ -347,15 +347,15 @@ describe('walkie_enroll', () => {
     const holder = createCapabilityHolder({
       api,
       tokenBox,
-      namespace: 'walkie-test',
+      namespace: 'collabcast-test',
       env: {},
       warn: () => {}
     });
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
     const payload = payloadOf(
-      await callTool(tools, 'walkie_enroll', {
-        namespace: 'walkie-test',
+      await callTool(tools, 'collabcast_enroll', {
+        namespace: 'collabcast-test',
         role: 'root',
         scopes: ['channel:read']
       })
@@ -371,14 +371,14 @@ describe('walkie_enroll', () => {
     const holder = createCapabilityHolder({
       api,
       tokenBox,
-      namespace: 'walkie-test',
+      namespace: 'collabcast-test',
       env: {},
       warn: () => {}
     });
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    const result = await callTool(tools, 'walkie_enroll', {
-      namespace: 'walkie-test',
+    const result = await callTool(tools, 'collabcast_enroll', {
+      namespace: 'collabcast-test',
       role: 'root',
       scopes: ['channel:read'],
       enrollmentCode: CODE
@@ -402,24 +402,24 @@ describe('one authority state for the whole process', () => {
     const holder = createCapabilityHolder({
       api,
       tokenBox: { value: null },
-      namespace: 'walkie-test',
+      namespace: 'collabcast-test',
       env: {},
       warn: () => {}
     });
-    const tools = buildTools({ api, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 
-    for (const name of ['walkie_inbox', 'walkie_read', 'walkie_sessions']) {
+    for (const name of ['collabcast_inbox', 'collabcast_read', 'collabcast_sessions']) {
       const payload = payloadOf(await callTool(tools, name, {}));
       expect(payload.code).toBe('unauthenticated');
-      expect(payload.message).toMatch(/walkie_enroll/);
+      expect(payload.message).toMatch(/collabcast_enroll/);
     }
     expect(api.names()).toEqual([]);
   });
 
   test('one rejected bearer stops every tool, not just the route that rejected it', async () => {
-    // v0.2's split brain: walkie_talk kept succeeding while walkie_inbox 404'd.
+    // v0.2's split brain: collabcast_talk kept succeeding while collabcast_inbox 404'd.
     const api = recordingApi({
-      inbox: () => Promise.reject(walkieError('unauthenticated', 'capability not accepted'))
+      inbox: () => Promise.reject(collabcastError('unauthenticated', 'capability not accepted'))
     });
     const guardedApi = {
       ...api,
@@ -433,12 +433,12 @@ describe('one authority state for the whole process', () => {
       }
     };
     const { holder } = await activeHolder(api);
-    const tools = buildTools({ api: guardedApi, capability: holder, namespace: 'walkie-test' });
+    const tools = buildTools({ api: guardedApi, capability: holder, namespace: 'collabcast-test' });
 
-    const first = payloadOf(await callTool(tools, 'walkie_inbox', {}));
+    const first = payloadOf(await callTool(tools, 'collabcast_inbox', {}));
     expect(first.code).toBe('unauthenticated');
 
-    const afterwards = payloadOf(await callTool(tools, 'walkie_talk', { body: 'still here?' }));
+    const afterwards = payloadOf(await callTool(tools, 'collabcast_talk', { body: 'still here?' }));
     expect(afterwards.code).toBe('unauthenticated');
     expect(afterwards.message).toMatch(/no longer accepted/);
     expect(api.names()).not.toContain('post');

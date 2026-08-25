@@ -8,14 +8,14 @@ import { deriveNamespace } from '../../src/cli/init.js';
 import { assertDisposable } from '../helpers/isolation.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '../../bin/walkie.js');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '../../bin/collabcast.js');
 
 /**
- * A throw-away checkout with its own identity map. `walkie init` now writes to the host identity
- * map, so every test must point `WALKIE_IDENTITIES` at a private file: the harness's map is
+ * A throw-away checkout with its own identity map. `collabcast init` now writes to the host identity
+ * map, so every test must point `COLLABCAST_IDENTITIES` at a private file: the harness's map is
  * shared by every worker in the run.
  */
-function scratch(prefix = 'walkie-init-') {
+function scratch(prefix = 'collabcast-init-') {
   const base = realpathSync(createFixtureDir(prefix));
   assertDisposable(base, 'init scratch dir');
   const dir = join(base, 'demo');
@@ -25,8 +25,8 @@ function scratch(prefix = 'walkie-init-') {
     base,
     dir,
     identities,
-    env: { ...process.env, WALKIE_IDENTITIES: identities },
-    config: () => JSON.parse(readFileSync(join(dir, '.walkie-talkie/config.json'), 'utf8')),
+    env: { ...process.env, COLLABCAST_IDENTITIES: identities },
+    config: () => JSON.parse(readFileSync(join(dir, '.collabcast/config.json'), 'utf8')),
     map: () => JSON.parse(readFileSync(identities, 'utf8')),
     cleanup: () => rmSync(base, { recursive: true, force: true })
   };
@@ -43,7 +43,7 @@ function run(args, s, opts = {}) {
 
 describe('deriveNamespace', () => {
   test('folds a project name into a legal namespace', () => {
-    expect(deriveNamespace('claude-walkie-talkie')).toBe('claude-walkie-talkie');
+    expect(deriveNamespace('collabcast')).toBe('collabcast');
     expect(deriveNamespace('My Project!')).toBe('my-project');
     expect(deriveNamespace('__weird__')).toBe('weird');
     expect(deriveNamespace('2024-rewrite')).toBe('ns-2024-rewrite');
@@ -54,13 +54,13 @@ describe('deriveNamespace', () => {
   });
 });
 
-describe('walkie init', () => {
+describe('collabcast init', () => {
   test('writes a schema-valid config and registers the namespace', () => {
     const s = scratch();
     try {
       const out = run(['init', '--operator', 'Trevor', '--name', 'demo'], s);
 
-      expect(existsSync(join(s.dir, '.walkie-talkie/channel.md'))).toBe(true);
+      expect(existsSync(join(s.dir, '.collabcast/channel.md'))).toBe(true);
       // The config carries only what the schema allows: no operator, no projectName, no permits.
       expect(s.config()).toEqual({
         schemaVersion: CONFIG_SCHEMA_VERSION,
@@ -68,8 +68,8 @@ describe('walkie init', () => {
         mode: 'managed'
       });
 
-      const channel = readFileSync(join(s.dir, '.walkie-talkie/channel.md'), 'utf8');
-      expect(channel).toContain('Walkie-Talkie Channel: demo');
+      const channel = readFileSync(join(s.dir, '.collabcast/channel.md'), 'utf8');
+      expect(channel).toContain('Collabcast Channel: demo');
       expect(channel).toContain('Operator:** Trevor');
 
       // Without a registration the directory resolves to no namespace at all.
@@ -91,7 +91,7 @@ describe('walkie init', () => {
       const out = run(['init', '--operator', 'T', '--namespace', 'my-chan', '--mode', 'standalone'], s);
       expect(s.config()).toMatchObject({ namespace: 'my-chan', mode: 'standalone' });
       expect(Object.keys(s.map().identities)).toEqual(['my-chan']);
-      expect(out).toMatch(/walkie start/);
+      expect(out).toMatch(/collabcast start/);
     } finally {
       s.cleanup();
     }
@@ -135,7 +135,7 @@ describe('walkie init', () => {
       // the ordering regresses.
       expect(s.config()).toEqual(before);
       expect(s.config().namespace).toBe('first');
-      expect(readFileSync(join(s.dir, '.walkie-talkie/channel.md'), 'utf8')).toContain(
+      expect(readFileSync(join(s.dir, '.collabcast/channel.md'), 'utf8')).toContain(
         'Operator:** First'
       );
     } finally {
@@ -153,7 +153,7 @@ describe('walkie init', () => {
       } catch (err) {
         stderr = String(err.stderr);
       }
-      expect(stderr).toMatch(/^walkie \[conflict]: /);
+      expect(stderr).toMatch(/^collabcast \[conflict]: /);
       expect(stderr).not.toMatch(/^\s+at /m);
     } finally {
       s.cleanup();
@@ -167,7 +167,7 @@ describe('walkie init', () => {
       execFileSync('git', ['config', 'user.name', 'Inferred From Git'], { cwd: s.dir });
       execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: s.dir });
       const out = run(['init'], s);
-      expect(readFileSync(join(s.dir, '.walkie-talkie/channel.md'), 'utf8')).toContain(
+      expect(readFileSync(join(s.dir, '.collabcast/channel.md'), 'utf8')).toContain(
         'Operator:** Inferred From Git'
       );
       expect(out).toMatch(/inferred from git config user\.name/);
@@ -185,7 +185,7 @@ describe('walkie init', () => {
       try {
         if (initGitRepo) execFileSync('git', ['init', '-q'], { cwd: s.dir, env: s.env });
         const out = run(['init'], s);
-        const channel = readFileSync(join(s.dir, '.walkie-talkie/channel.md'), 'utf8');
+        const channel = readFileSync(join(s.dir, '.collabcast/channel.md'), 'utf8');
 
         // The expectation comes from `id -un`, NOT from the `os.userInfo()` call
         // the subject itself makes: comparing the subject's source against

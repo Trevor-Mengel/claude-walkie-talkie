@@ -1,6 +1,7 @@
 import { describe, test, expect, afterEach } from 'vitest';
 import request from 'supertest';
 import { EXCHANGE_ACTION, handleEnrollRequest } from '../../../src/authority/enroll.js';
+import { ROLE_SCOPES } from '../../../src/authority/policy.js';
 import { getCapability, verifyCapability } from '../../../src/store/capabilities.js';
 import { listAudit } from '../../../src/store/audit.js';
 import { createEnrollmentCode, recordApproval } from '../../../src/store/approvals.js';
@@ -239,6 +240,57 @@ describe('POST /delegate', () => {
       principalId: res.body.principalId,
       parentCapabilityId: root.capabilityId
     });
+  });
+
+  test('an operator may delegate too, which is what makes `enroll --recovery` possible', async () => {
+    // The break-glass path (`collabcast enroll --recovery`) authenticates with the operator
+    // credential and lands on THIS route. While the parent-role fence read `root` alone, the
+    // only break-glass command in the product answered `forbidden` to the only credential it is
+    // documented to use — and no test noticed, because every fixture delegated as `root`.
+    const fx = createFixture();
+    // The real operator scope set, as `operator-credential.js` issues it.
+    const operator = mintActor(fx.store, {
+      role: 'operator',
+      scopes: ROLE_SCOPES.operator
+    });
+
+    const res = await request(fx.app)
+      .post('/delegate')
+      .set('Authorization', operator.bearer)
+      .send({ role: 'listener', scopes: ['channel:read', 'self:cursor'], ttlSeconds: 600 });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect(res.body.role).toBe('listener');
+
+    const child = getCapability(fx.store, res.body.capabilityId);
+    expect(child.parentCapabilityId).toBe(operator.capabilityId);
+    expect(child.attestationKind).toBe('delegation');
+
+    // Still a delegation, so still narrowing: the child cannot outlive or out-scope the operator.
+    expect(child.expiresAt <= getCapability(fx.store, operator.capabilityId).expiresAt).toBe(true);
+    const widen = await request(fx.app)
+      .post('/delegate')
+      .set('Authorization', operator.bearer)
+      .send({ role: 'listener', scopes: ['channel:publish'], ttlSeconds: 600 });
+    expect(widen.status).toBe(403);
+  });
+
+  test('a listener holding enroll:delegate still cannot delegate', async () => {
+    // The scope is the authority and the role check is the second, independent fence. Widening
+    // it to `operator` must not have widened it to "anyone who happens to hold the scope".
+    const fx = createFixture();
+    const actor = mintActor(fx.store, {
+      role: 'listener',
+      scopes: ['channel:read', 'enroll:delegate']
+    });
+    const before = countPrincipals(fx);
+    const res = await request(fx.app)
+      .post('/delegate')
+      .set('Authorization', actor.bearer)
+      .send({ role: 'listener', scopes: ['channel:read'], ttlSeconds: 600 });
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('forbidden');
+    expect(res.body.error.detail.role).toBe('listener');
+    expect(countPrincipals(fx)).toBe(before);
   });
 
   // E4d. Each refusal below asserts the principal table is untouched, not merely

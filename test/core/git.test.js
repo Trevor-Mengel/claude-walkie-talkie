@@ -14,8 +14,8 @@ describe('git metadata', () => {
   let nonRepoDir;
 
   beforeAll(() => {
-    repoDir = createFixtureDir('walkie-git-');
-    nonRepoDir = createFixtureDir('walkie-nogit-');
+    repoDir = createFixtureDir('collabcast-git-');
+    nonRepoDir = createFixtureDir('collabcast-nogit-');
     git(['init', '-q', '-b', 'main'], repoDir);
     git(['config', 'user.email', 'tester@example.com'], repoDir);
     git(['config', 'user.name', 'Tester'], repoDir);

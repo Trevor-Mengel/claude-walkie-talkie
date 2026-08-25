@@ -4,7 +4,7 @@
 //
 // `os.userInfo()` reads the passwd database through libuv, so it cannot be
 // steered by an environment variable — which is why the "no usable operator
-// name" branch of `walkie init` is unreachable without replacing the module.
+// name" branch of `collabcast init` is unreachable without replacing the module.
 // The real builtin is reached through `createRequire`, because CJS resolution is
 // not intercepted by the ESM resolve hook that routes `node:os` here.
 

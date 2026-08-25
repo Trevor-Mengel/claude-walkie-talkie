@@ -11,6 +11,15 @@ function emojiForTool(tool) {
 }
 
 /**
+ * The `walkie:` marker namespace used throughout this module is DELIBERATELY NOT RENAMED to
+ * `collabcast:` with the rest of the product. It is the on-disk contract in `channel.md`:
+ * invisible to users, and `isValidMessageBody` rejects that exact literal in a body, which is
+ * the whole unforgeability argument for both the message marker and the body fence. Renaming
+ * it would force a migration of a file P1 converts into a generated projection anyway, so the
+ * prefix rides the v0.2 -> v0.3 importer instead. Do not "finish" the rename here.
+ */
+
+/**
  * Heading text is a rendering — but `parseMessage` reads the alias back out of the
  * heading and `editMessage`/`archiveMessage` re-render from that parse, so it has to
  * be both unable to carry markup and exactly invertible.
@@ -206,7 +215,7 @@ export function formatMessage(msg) {
   }
   if (msg.revision) {
     // Names the route that actually serves revisions. This line used to say
-    // "run `walkie history <id>`" — a command that does not exist (`bin/walkie.js`
+    // "run `collabcast history <id>`" — a command that does not exist (`bin/collabcast.js`
     // has no such subcommand) — and unlike a stale log line it is PERSISTED into the
     // operator's channel document, once per edit, forever. Same call as the deleted
     // `notify.js` hint: never durably instruct a human to run a command that fails.
@@ -400,7 +409,7 @@ function unwrapArchived(bodyLines) {
  * exactly the data-loss bug the fence was introduced to eliminate, so the fallback
  * is reachable only for a block with no open fence at all.
  */
-const CORRUPT_BODY = Symbol('walkie:unterminated-body-fence');
+const CORRUPT_BODY = Symbol('collabcast:unterminated-body-fence');
 export const BODY_ERROR_UNTERMINATED = 'unterminated-body-fence';
 
 function extractBody(lines, markerIdx, id) {

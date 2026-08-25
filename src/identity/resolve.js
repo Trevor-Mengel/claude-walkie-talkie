@@ -1,6 +1,6 @@
 import { sep } from 'node:path';
 import { NOT_A_REPO_RE, runGit } from '../core/git.js';
-import { WalkieError } from './errors.js';
+import { CollabcastError } from './errors.js';
 import { isNamespace } from './namespace.js';
 import { canonicalizePath, isInside } from './paths.js';
 import { loadIdentities } from './identities.js';
@@ -25,7 +25,7 @@ const GIT_DIR_SUFFIX = `${sep}.git`;
  *
  * @param {{cwd:string, env?:Record<string,string|undefined>}} opts
  * @returns {{root:string, inRepo:boolean, gitCommonDir:string|null}}
- * @throws {WalkieError} `namespace_unresolved` when git cannot answer
+ * @throws {CollabcastError} `namespace_unresolved` when git cannot answer
  */
 export function repositoryRoot({ cwd, env = process.env }) {
   // `runGit` removes every variable in GIT_DISCOVERY_OVERRIDES from the child
@@ -35,7 +35,7 @@ export function repositoryRoot({ cwd, env = process.env }) {
     env
   });
   if (res.spawnFailed) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'namespace_unresolved',
       'git could not be executed, so the repository that owns this directory is unknown',
       { reason: 'git_unavailable' }
@@ -43,7 +43,7 @@ export function repositoryRoot({ cwd, env = process.env }) {
   }
   if (res.status !== 0) {
     if (!NOT_A_REPO_RE.test(res.stderr)) {
-      throw new WalkieError(
+      throw new CollabcastError(
         'namespace_unresolved',
         'git refused to report the repository that owns this directory',
         { reason: 'git_indeterminate', status: res.status }
@@ -54,7 +54,7 @@ export function repositoryRoot({ cwd, env = process.env }) {
   }
   const out = res.stdout.trim();
   if (out.length === 0) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'namespace_unresolved',
       'git reported no path for the repository that owns this directory',
       { reason: 'git_indeterminate', status: 0 }
@@ -70,7 +70,7 @@ export function repositoryRoot({ cwd, env = process.env }) {
 /**
  * Resolves the namespace that owns `cwd`.
  *
- * `WALKIE_NAMESPACE` is a hint only: it must name a namespace in the map AND that namespace must
+ * `COLLABCAST_NAMESPACE` is a hint only: it must name a namespace in the map AND that namespace must
  * own `cwd`, otherwise the call is rejected. There is no generic default namespace — an
  * unregistered directory fails with `namespace_unresolved`.
  *
@@ -80,18 +80,18 @@ export function repositoryRoot({ cwd, env = process.env }) {
  */
 export function resolveNamespace({ cwd = process.cwd(), env = process.env, identities } = {}) {
   const map = identities ?? loadIdentities({ env });
-  const hint = env.WALKIE_NAMESPACE;
+  const hint = env.COLLABCAST_NAMESPACE;
 
   if (hint !== undefined && hint !== '') {
     if (!isNamespace(hint)) {
-      throw new WalkieError('namespace_unresolved', 'WALKIE_NAMESPACE is not a valid namespace', {
+      throw new CollabcastError('namespace_unresolved', 'COLLABCAST_NAMESPACE is not a valid namespace', {
         reason: 'hint_invalid'
       });
     }
     if (!Object.prototype.hasOwnProperty.call(map.identities, hint)) {
-      throw new WalkieError(
+      throw new CollabcastError(
         'namespace_unresolved',
-        `WALKIE_NAMESPACE=${hint} is not present in the identity map`,
+        `COLLABCAST_NAMESPACE=${hint} is not present in the identity map`,
         { reason: 'hint_unknown_namespace', hint }
       );
     }
@@ -109,9 +109,9 @@ export function resolveNamespace({ cwd = process.cwd(), env = process.env, ident
   }
 
   if (matches.length === 0) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'namespace_unresolved',
-      `no walkie identity registers ${root}${inRepo ? '' : ' (not inside a git repository)'}`,
+      `no collabcast identity registers ${root}${inRepo ? '' : ' (not inside a git repository)'}`,
       { searchRoot: root, inRepo }
     );
   }
@@ -121,7 +121,7 @@ export function resolveNamespace({ cwd = process.cwd(), env = process.env, ident
     ...new Set(matches.filter((m) => m.length === longest.length).map((m) => m.entry.namespace))
   ];
   if (tiedNamespaces.length > 1) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'config_invalid',
       `${root} is claimed by more than one namespace: ${tiedNamespaces.join(', ')}`,
       { path: root, namespaces: tiedNamespaces }
@@ -131,9 +131,9 @@ export function resolveNamespace({ cwd = process.cwd(), env = process.env, ident
   const { entry, registrationRoot } = longest;
 
   if (hint !== undefined && hint !== '' && hint !== entry.namespace) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'namespace_unresolved',
-      `WALKIE_NAMESPACE=${hint} does not own ${root} (owned by ${entry.namespace})`,
+      `COLLABCAST_NAMESPACE=${hint} does not own ${root} (owned by ${entry.namespace})`,
       { reason: 'hint_does_not_own_cwd', hint, owner: entry.namespace, searchRoot: root }
     );
   }

@@ -13,19 +13,42 @@
 
 import { chmodSync, mkdirSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { WalkieError } from '../identity/errors.js';
-import { walkieDir } from '../config/schema.js';
+import { CollabcastError } from '../identity/errors.js';
+import { collabcastDir } from '../config/schema.js';
 
-/** `<canonicalRoot>/.walkie-talkie/run` */
+/** `<canonicalRoot>/.collabcast/run` */
 export const RUNTIME_DIRNAME = 'run';
 export const SOCKET_FILENAME = 'authority.sock';
 export const SECRET_FILENAME = 'hook.secret';
+
+/**
+ * The operator's break-glass capability, minted by the service at boot (see
+ * `operator-credential.js`) and read by the CLI (see `client/credentials.js`).
+ *
+ * The name lives here, next to the socket and the hook secret, because all three are the
+ * runtime directory's layout and a second spelling of any of them is a file one half of the
+ * product writes and the other half never finds — which is exactly how this file came to be
+ * created by the test suite and by nothing else.
+ */
+export const OPERATOR_CREDENTIAL_FILENAME = 'operator.cred';
+
+/**
+ * Where a detached service's stderr lands.
+ *
+ * `collabcast start` spawns the service with `detached: true`, and it used to spawn it with
+ * `stdio: 'ignore'` — so every operator-facing refusal the boot can produce (a wedged
+ * `hook.secret`, a revoked `operator.cred`) was written to /dev/null, and the only thing the
+ * operator ever saw was `did not begin answering within the startup window` ten seconds later.
+ * A refusal that names the file and the fix is worthless if nothing keeps it, so it is kept
+ * here: truncated on every spawn, owner-only like everything else under `run/`.
+ */
+export const SERVICE_STDERR_FILENAME = 'service.err';
 
 export const RUNTIME_DIR_MODE = 0o700;
 export const RUNTIME_FILE_MODE = 0o600;
 
 /** Env var naming an out-of-tree runtime directory (used by the test isolation harness). */
-export const RUNTIME_ROOT_ENV = 'WALKIE_RUNTIME_ROOT';
+export const RUNTIME_ROOT_ENV = 'COLLABCAST_RUNTIME_ROOT';
 
 /**
  * AF_UNIX `sun_path` is a fixed-size field — 104 bytes on Darwin/BSD, 108 on Linux,
@@ -41,10 +64,10 @@ export const MAX_SOCKET_PATH_BYTES = process.platform === 'linux' ? 107 : 103;
  */
 function requireAbsolute(value, label) {
   if (typeof value !== 'string' || value.length === 0) {
-    throw new WalkieError('config_invalid', `${label} must be a non-empty absolute path`);
+    throw new CollabcastError('config_invalid', `${label} must be a non-empty absolute path`);
   }
   if (!isAbsolute(value)) {
-    throw new WalkieError('config_invalid', `${label} must be an absolute path`);
+    throw new CollabcastError('config_invalid', `${label} must be an absolute path`);
   }
   return value;
 }
@@ -54,8 +77,8 @@ function requireAbsolute(value, label) {
  * transport socket live, so they can never drift into separate directories with
  * separate permissions.
  *
- * Precedence: explicit override, then `WALKIE_RUNTIME_ROOT`, then
- * `<canonicalRoot>/.walkie-talkie/run`. The env var exists because a deep checkout
+ * Precedence: explicit override, then `COLLABCAST_RUNTIME_ROOT`, then
+ * `<canonicalRoot>/.collabcast/run`. The env var exists because a deep checkout
  * plus the in-tree default can exceed the AF_UNIX path limit, and because the test
  * harness pins every runtime location to a disposable directory.
  *
@@ -70,12 +93,12 @@ export function authorityRuntimeDir(canonicalRoot, override, env = process.env) 
   if (typeof fromEnv === 'string' && fromEnv.length > 0) {
     return requireAbsolute(fromEnv, RUNTIME_ROOT_ENV);
   }
-  return join(walkieDir(requireAbsolute(canonicalRoot, 'canonicalRoot')), RUNTIME_DIRNAME);
+  return join(collabcastDir(requireAbsolute(canonicalRoot, 'canonicalRoot')), RUNTIME_DIRNAME);
 }
 
 /**
  * The operator-hook enrollment socket. This is NOT the HTTP transport socket
- * (`walkie.sock`); it carries only `enroll.request`.
+ * (`collabcast.sock`); it carries only `enroll.request`.
  *
  * @param {string} runtimeRoot
  * @param {string} [override]
@@ -96,6 +119,26 @@ export function authoritySocketPath(runtimeRoot, override) {
 export function hookSecretPath(runtimeRoot, override) {
   if (override !== undefined) return requireAbsolute(override, 'hook secret path');
   return join(requireAbsolute(runtimeRoot, 'runtimeRoot'), SECRET_FILENAME);
+}
+
+/**
+ * The operator break-glass credential file.
+ *
+ * @param {string} runtimeRoot
+ * @returns {string} `<runtimeRoot>/operator.cred`
+ */
+export function operatorCredentialPath(runtimeRoot) {
+  return join(requireAbsolute(runtimeRoot, 'runtimeRoot'), OPERATOR_CREDENTIAL_FILENAME);
+}
+
+/**
+ * The file a detached service's stderr is redirected to.
+ *
+ * @param {string} runtimeRoot
+ * @returns {string} `<runtimeRoot>/service.err`
+ */
+export function serviceStderrPath(runtimeRoot) {
+  return join(requireAbsolute(runtimeRoot, 'runtimeRoot'), SERVICE_STDERR_FILENAME);
 }
 
 /**
@@ -120,7 +163,7 @@ export function ensureRuntimeDir(runtimeRoot) {
 export function assertBindablePath(socketPath) {
   const bytes = Buffer.byteLength(socketPath, 'utf8');
   if (bytes > MAX_SOCKET_PATH_BYTES) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'config_invalid',
       'the authority socket path is too long for a unix domain socket',
       { bytes, maxBytes: MAX_SOCKET_PATH_BYTES }

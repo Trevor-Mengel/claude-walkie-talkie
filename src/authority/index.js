@@ -1,9 +1,10 @@
 /**
  * The authority slice: operator-approved enrollment.
  *
- * Two entry points matter to the rest of the system:
+ * Three entry points matter to the rest of the system:
  *
  *   startAuthority({ store, config, runtimeRoot })  — the daemon binds the hook socket
+ *   ensureOperatorCredential({ store, runtimeRoot }) — the daemon mints the operator's credential
  *   exchangeEnrollmentCode(store, code)             — POST /enroll/exchange redeems a code
  *
  * Everything else exported here is the policy and path vocabulary the transport layer
@@ -15,12 +16,16 @@ export {
   RUNTIME_ROOT_ENV,
   SOCKET_FILENAME,
   SECRET_FILENAME,
+  OPERATOR_CREDENTIAL_FILENAME,
+  SERVICE_STDERR_FILENAME,
   RUNTIME_DIR_MODE,
   RUNTIME_FILE_MODE,
   MAX_SOCKET_PATH_BYTES,
   authorityRuntimeDir,
   authoritySocketPath,
   hookSecretPath,
+  operatorCredentialPath,
+  serviceStderrPath,
   ensureRuntimeDir,
   assertBindablePath
 } from './paths.js';
@@ -34,6 +39,14 @@ export {
   loadSecret,
   ensureSecret
 } from './secret.js';
+
+export {
+  OPERATOR_ROLE,
+  OPERATOR_ATTESTATION_KIND,
+  OPERATOR_ATTESTATION_REF,
+  OPERATOR_CREDENTIAL_TTL_SECONDS,
+  ensureOperatorCredential
+} from './operator-credential.js';
 
 export {
   ENROLL_ROLE,

@@ -45,7 +45,7 @@ export function isId(value) {
  * deliberately WIDER than the block parser — so one marker carrying the maximum base32
  * value (26 `Z`s, from a hand-edit, a bad merge, or a forged marker) reached
  * `incrementBase32`, which threw a bare `incorrectly encoded string`. That code is not in
- * the wire vocabulary, so `toWalkie` passed it straight through and every subsequent post
+ * the wire vocabulary, so `toCollabcast` passed it straight through and every subsequent post
  * returned `500 internal` — for every principal, permanently, with nothing anywhere
  * naming the cause. The poison lives in the FILE, so the remedy is a human edit, and a
  * human edit needs the offending id.

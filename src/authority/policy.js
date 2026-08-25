@@ -15,7 +15,7 @@
  * authority.
  */
 
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { SCOPES } from '../store/capabilities.js';
 
 /** The only role hook enrollment may mint. */
@@ -28,8 +28,20 @@ export const ENROLLABLE_ROLES = Object.freeze([ENROLL_ROLE]);
  * The widest grant each role may hold. `root` deliberately excludes
  * `permit:administer` and `retention:approve`: destructive authority is reached
  * through an operator CLI attestation, never through an agent-initiated dialog.
+ *
+ * `operator` is that attestation, so it holds every scope the store defines. Two consequences
+ * worth stating out loud. It is the only role that reaches the destructive scopes, which is what
+ * "through an operator CLI attestation" above has always meant and now names. And a break-glass
+ * `enroll --recovery` can hand down any delegable role's full allowlist, because
+ * `issueCapability` refuses a child scope the parent does not hold — an operator missing
+ * `listener:consume` could not mint a working listener, which is exactly the credential a
+ * break-glass path exists to produce.
+ *
+ * `operator` is NOT in `ENROLLABLE_ROLES` or the delegation allowlist: it is minted only by the
+ * service, for the human whose uid owns the runtime directory (see `operator-credential.js`).
  */
 export const ROLE_SCOPES = Object.freeze({
+  operator: Object.freeze([...SCOPES]),
   root: Object.freeze([
     'channel:read',
     'channel:publish',
@@ -88,7 +100,7 @@ const STORE_SCOPES = new Set(SCOPES);
 export function scopesForRole(role) {
   const allowed = ROLE_SCOPES[role];
   if (!allowed) {
-    throw new WalkieError('forbidden', 'role has no scope allowlist', { role: String(role) });
+    throw new CollabcastError('forbidden', 'role has no scope allowlist', { role: String(role) });
   }
   return [...allowed];
 }
@@ -103,13 +115,13 @@ function requireTtlSeconds(value) {
   // check, deliberately without coercion, so `'60'` cannot become 60 somewhere in the
   // chain and quietly widen an approval the operator read as seconds.
   if (typeof value !== 'number' || !Number.isInteger(value)) {
-    throw new WalkieError('invalid_request', 'ttlSeconds must be an integer number of seconds', {
+    throw new CollabcastError('invalid_request', 'ttlSeconds must be an integer number of seconds', {
       min: MIN_ENROLL_TTL_SECONDS,
       max: MAX_ENROLL_TTL_SECONDS
     });
   }
   if (value < MIN_ENROLL_TTL_SECONDS || value > MAX_ENROLL_TTL_SECONDS) {
-    throw new WalkieError('invalid_request', 'ttlSeconds is outside the permitted range', {
+    throw new CollabcastError('invalid_request', 'ttlSeconds is outside the permitted range', {
       ttlSeconds: value,
       min: MIN_ENROLL_TTL_SECONDS,
       max: MAX_ENROLL_TTL_SECONDS
@@ -131,7 +143,7 @@ export function requireCodeTtlSeconds(value, fallback = DEFAULT_CODE_TTL_SECONDS
     value < MIN_CODE_TTL_SECONDS ||
     value > MAX_CODE_TTL_SECONDS
   ) {
-    throw new WalkieError('config_invalid', 'the enrollment window is outside the permitted range', {
+    throw new CollabcastError('config_invalid', 'the enrollment window is outside the permitted range', {
       min: MIN_CODE_TTL_SECONDS,
       max: MAX_CODE_TTL_SECONDS
     });
@@ -146,19 +158,19 @@ export function requireCodeTtlSeconds(value, fallback = DEFAULT_CODE_TTL_SECONDS
  */
 function requireScopes(value, role) {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new WalkieError('invalid_request', 'scopes must be a non-empty array of scope names');
+    throw new CollabcastError('invalid_request', 'scopes must be a non-empty array of scope names');
   }
   const allowed = new Set(scopesForRole(role));
   const seen = new Set();
   for (const scope of value) {
     if (typeof scope !== 'string' || scope.length === 0) {
-      throw new WalkieError('invalid_request', 'every scope must be a non-empty string');
+      throw new CollabcastError('invalid_request', 'every scope must be a non-empty string');
     }
     if (!STORE_SCOPES.has(scope)) {
-      throw new WalkieError('forbidden', 'unknown scope', { scope });
+      throw new CollabcastError('forbidden', 'unknown scope', { scope });
     }
     if (!allowed.has(scope)) {
-      throw new WalkieError('forbidden', 'scope is not permitted for this role', { scope, role });
+      throw new CollabcastError('forbidden', 'scope is not permitted for this role', { scope, role });
     }
     seen.add(scope);
   }
@@ -178,22 +190,22 @@ function requireScopes(value, role) {
 export function assertEnrollable({ namespace, role, scopes, ttlSeconds, config } = {}) {
   const expected = config?.namespace;
   if (typeof expected !== 'string' || expected.length === 0) {
-    throw new WalkieError('namespace_unresolved', 'the authority has no namespace of its own');
+    throw new CollabcastError('namespace_unresolved', 'the authority has no namespace of its own');
   }
   if (typeof namespace !== 'string' || namespace.length === 0) {
-    throw new WalkieError('invalid_request', 'namespace is required');
+    throw new CollabcastError('invalid_request', 'namespace is required');
   }
   if (namespace !== expected) {
     // Opaque on the wire (see DENIED_MESSAGE); the detail is for the audit row only.
-    throw new WalkieError('wrong_namespace', 'namespace does not match this authority', {
+    throw new CollabcastError('wrong_namespace', 'namespace does not match this authority', {
       requested: namespace
     });
   }
   if (typeof role !== 'string' || role.length === 0) {
-    throw new WalkieError('invalid_request', 'role is required');
+    throw new CollabcastError('invalid_request', 'role is required');
   }
   if (!ENROLLABLE_ROLES.includes(role)) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'forbidden',
       'only the namespace root may be enrolled by operator approval; ' +
         'other roles are delegated by an enrolled root',

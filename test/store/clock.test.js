@@ -2,7 +2,7 @@
 //
 // Wave F blocker: `requireTtl` checked only "positive integer", so `requireTtl(1e18)` passed
 // and the very next call — `plusSeconds(1e18)` — threw a bare `RangeError: Invalid time value`
-// whose `code` is `undefined`. `toWalkie` only translates a thrown value that already carries a
+// whose `code` is `undefined`. `toCollabcast` only translates a thrown value that already carries a
 // recognised code, so an absurd `ttlSeconds` on `POST /delegate` reached the client as
 // `500 internal`: a client error reported as a server fault, on the one surface where the
 // caller is minting credentials. Slightly smaller values were worse than a 500 — they

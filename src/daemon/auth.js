@@ -14,7 +14,7 @@
  * now a hard 400 — see `rejectLegacyAuthorityFields`.
  */
 
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { hasScope, verifyCapability, SCOPES } from '../store/capabilities.js';
 import { audit } from '../store/audit.js';
 
@@ -102,17 +102,17 @@ function auditReject(store, req, reason, extra) {
  */
 export function requireCapability(store, serverNamespace) {
   if (!store || typeof store.db !== 'object') {
-    throw new WalkieError('internal', 'requireCapability needs an open store');
+    throw new CollabcastError('internal', 'requireCapability needs an open store');
   }
   if (typeof serverNamespace !== 'string' || serverNamespace.length === 0) {
-    throw new WalkieError('namespace_unresolved', 'requireCapability needs a server namespace');
+    throw new CollabcastError('namespace_unresolved', 'requireCapability needs a server namespace');
   }
 
   return function capabilityGate(req, _res, next) {
     const token = parseBearer(req.headers.authorization);
     if (!token) {
       auditReject(store, req, 'bearer.missing_or_malformed');
-      next(new WalkieError('unauthenticated', 'a capability token is required'));
+      next(new CollabcastError('unauthenticated', 'a capability token is required'));
       return;
     }
 
@@ -129,7 +129,7 @@ export function requireCapability(store, serverNamespace) {
       // Unknown, expired, revoked, not-yet-valid, or revoked-ancestor: one answer for all of
       // them, so the response never tells a prober which check it failed.
       auditReject(store, req, 'capability.unknown_or_inactive');
-      next(new WalkieError('unauthenticated', 'a capability token is required'));
+      next(new CollabcastError('unauthenticated', 'a capability token is required'));
       return;
     }
 
@@ -139,14 +139,14 @@ export function requireCapability(store, serverNamespace) {
         capabilityId: resolved.capability.id
       });
       next(
-        new WalkieError('wrong_namespace', 'this capability belongs to a different namespace', {
+        new CollabcastError('wrong_namespace', 'this capability belongs to a different namespace', {
           expected: serverNamespace
         })
       );
       return;
     }
 
-    req.walkie = {
+    req.collabcast = {
       principal: resolved.principal,
       capability: resolved.capability,
       namespace: serverNamespace
@@ -182,14 +182,14 @@ export function requireCapability(store, serverNamespace) {
  */
 export function requireScope(scope) {
   if (!SCOPE_SET.has(scope)) {
-    throw new WalkieError('internal', 'requireScope was given an unknown scope', {
+    throw new CollabcastError('internal', 'requireScope was given an unknown scope', {
       scope: String(scope)
     });
   }
   return function scopeGate(req, _res, next) {
-    const capability = req.walkie?.capability;
+    const capability = req.collabcast?.capability;
     if (!capability) {
-      next(new WalkieError('unauthenticated', 'a capability token is required'));
+      next(new CollabcastError('unauthenticated', 'a capability token is required'));
       return;
     }
     if (!hasScope(capability, scope)) {
@@ -201,14 +201,14 @@ export function requireScope(scope) {
       if (store) {
         audit(store, {
           action: SCOPE_REJECT_ACTION,
-          actorPrincipalId: req.walkie.principal?.id ?? null,
+          actorPrincipalId: req.collabcast.principal?.id ?? null,
           subject: capability.id,
           outcome: 'denied',
           detail: { scope, method: req.method, route: req.route?.path ?? null }
         });
       }
       next(
-        new WalkieError('scope_required', `this route requires the ${scope} scope`, { scope })
+        new CollabcastError('scope_required', `this route requires the ${scope} scope`, { scope })
       );
       return;
     }
@@ -232,7 +232,7 @@ export function rejectLegacyAuthorityFields() {
       for (const field of LEGACY_AUTHORITY_FIELDS) {
         if (Object.prototype.hasOwnProperty.call(body, field)) {
           next(
-            new WalkieError(
+            new CollabcastError(
               'invalid_request',
               `${field} is no longer accepted: identity and authority come from the capability ` +
                 'token, never from the request body',

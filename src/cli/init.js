@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { userInfo } from 'node:os';
 import { isValidOperatorName } from '../core/validate.js';
-import { walkieError } from '../identity/errors.js';
+import { collabcastError } from '../identity/errors.js';
 import { canonicalizePath } from '../identity/paths.js';
 import { assertNamespace, isNamespace } from '../identity/namespace.js';
 import {
@@ -15,7 +15,7 @@ import {
   identitiesPath,
   parseIdentities
 } from '../identity/identities.js';
-import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG, MODES, configPath, walkieDir } from '../config/schema.js';
+import { CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG, MODES, configPath, collabcastDir } from '../config/schema.js';
 import { verifyPathExcluded } from '../config/load.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -25,22 +25,22 @@ const TEMPLATE_PATH = resolve(__dirname, '../../templates/channel.md');
 const IDENTITIES_MODE = 0o600;
 
 /**
- * `.walkie-talkie/` is local state, and `channel.md` is an input the daemon's watcher
+ * `.collabcast/` is local state, and `channel.md` is an input the daemon's watcher
  * honours — a committed channel ships whatever it contains to every clone, including a
  * forged message block. So `init` makes the directory git-ignored, idempotently and
  * without ever rewriting a line the operator put there.
  */
-const GITIGNORE_RULE = '.walkie-talkie/';
-const GITIGNORE_COMMENT = '# walkie-talkie: local channel state and session history';
+const GITIGNORE_RULE = '.collabcast/';
+const GITIGNORE_COMMENT = '# collabcast: local channel state and session history';
 
 /** Every spelling of a rule that already ignores the directory. */
-function ignoresWalkieDir(line) {
+function ignoresCollabcastDir(line) {
   const bare = line.trim().replace(/\/+$/, '');
-  return bare === '.walkie-talkie' || bare === '/.walkie-talkie' || bare === '**/.walkie-talkie';
+  return bare === '.collabcast' || bare === '/.collabcast' || bare === '**/.collabcast';
 }
 
 /**
- * Ensures `<projectRoot>/.gitignore` ignores `.walkie-talkie/`. Appends only, so existing
+ * Ensures `<projectRoot>/.gitignore` ignores `.collabcast/`. Appends only, so existing
  * content survives byte-for-byte, and re-running `init` never duplicates the rule.
  * @param {string} projectRoot
  * @returns {Promise<{path:string, added:boolean}>}
@@ -53,7 +53,7 @@ async function ensureGitignored(projectRoot) {
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
   }
-  if (existing.split('\n').some(ignoresWalkieDir)) return { path, added: false };
+  if (existing.split('\n').some(ignoresCollabcastDir)) return { path, added: false };
   // Supply only the newlines the file is actually missing; a file that does not end in
   // one would otherwise get our comment glued onto its last rule.
   const terminator = existing.length === 0 || existing.endsWith('\n') ? '' : '\n';
@@ -154,7 +154,7 @@ export function deriveNamespace(raw) {
     .slice(0, 64);
   const candidate = folded === '' ? '' : /^[a-z]/.test(folded) ? folded : `ns-${folded}`.slice(0, 64);
   if (!isNamespace(candidate)) {
-    throw walkieError(
+    throw collabcastError(
       'config_invalid',
       `cannot derive a namespace from "${raw}"; pass --namespace <name> matching ` +
         'a lowercase letter followed by lowercase letters, digits or hyphens'
@@ -197,7 +197,7 @@ async function registerNamespace({ namespace, canonicalRoot, env = process.env }
     for (const [name, entry] of Object.entries(map.identities)) {
       if (name === namespace) continue;
       if (entry.registrations.includes(canonicalRoot)) {
-        throw walkieError(
+        throw collabcastError(
           'conflict',
           `this directory is already registered to the namespace "${name}"; a path may only ` +
             'belong to one namespace'
@@ -207,7 +207,7 @@ async function registerNamespace({ namespace, canonicalRoot, env = process.env }
 
     const existing = map.identities[namespace];
     if (existing && existing.canonicalRoot !== canonicalRoot) {
-      throw walkieError(
+      throw collabcastError(
         'conflict',
         `the namespace "${namespace}" is already registered to a different directory; pick ` +
           'another name with --namespace'
@@ -234,11 +234,11 @@ async function registerNamespace({ namespace, canonicalRoot, env = process.env }
  */
 export async function initCommand({ operator, name, namespace, mode, force } = {}) {
   const projectRoot = canonicalizePath(process.cwd());
-  const wt = walkieDir(projectRoot);
+  const wt = collabcastDir(projectRoot);
   if (existsSync(wt) && !force) {
-    throw walkieError(
+    throw collabcastError(
       'conflict',
-      '.walkie-talkie/ already exists here. Use --force to reinitialize.'
+      '.collabcast/ already exists here. Use --force to reinitialize.'
     );
   }
 
@@ -246,7 +246,7 @@ export async function initCommand({ operator, name, namespace, mode, force } = {
   let operatorSource = 'flag';
   if (operatorName) {
     if (!isValidOperatorName(operatorName)) {
-      throw walkieError(
+      throw collabcastError(
         'invalid_request',
         "invalid --operator value: contains forbidden characters or exceeds 80 chars; pass a " +
           "name matching letters/numbers/spaces/._'-"
@@ -255,7 +255,7 @@ export async function initCommand({ operator, name, namespace, mode, force } = {
   } else {
     const inferred = inferOperator(projectRoot);
     if (!inferred) {
-      throw walkieError(
+      throw collabcastError(
         'invalid_request',
         'could not infer an operator name (no valid git config user.name and no valid OS ' +
           'username). Pass --operator <name>.'
@@ -271,7 +271,7 @@ export async function initCommand({ operator, name, namespace, mode, force } = {
     : deriveNamespace(projectName);
   const effectiveMode = mode ?? DEFAULT_CONFIG.mode;
   if (!MODES.includes(effectiveMode)) {
-    throw walkieError('invalid_request', `--mode must be one of ${MODES.join(', ')}`);
+    throw collabcastError('invalid_request', `--mode must be one of ${MODES.join(', ')}`);
   }
 
   // Claim the namespace FIRST. Registration is the only step here that can be
@@ -323,16 +323,16 @@ export async function initCommand({ operator, name, namespace, mode, force } = {
   );
   if (exclusion.reason === 'tracked') {
     lines.push(
-      'WARNING: .walkie-talkie/channel.md is TRACKED in git. The service refuses to start ' +
+      'WARNING: .collabcast/channel.md is TRACKED in git. The service refuses to start ' +
         'while it is, because a committed channel is shipped to every clone. Run ' +
-        '`git rm -r --cached .walkie-talkie` and commit that removal.'
+        '`git rm -r --cached .collabcast` and commit that removal.'
     );
   }
   lines.push(
     effectiveMode === 'managed'
-      ? 'Mode is managed: Paseo supervises this namespace\'s walkie-svc. Re-run with ' +
+      ? 'Mode is managed: Paseo supervises this namespace\'s collabcast-svc. Re-run with ' +
           '`--mode standalone --force` if you want to run it yourself.'
-      : 'Mode is standalone. Next: walkie start'
+      : 'Mode is standalone. Next: collabcast start'
   );
   process.stdout.write(`${lines.join('\n')}\n`);
 }

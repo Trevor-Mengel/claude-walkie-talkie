@@ -11,7 +11,7 @@
  *   -> rejectLegacyAuthorityFields
  *   -> GET /health              (unauthenticated, discloses no filesystem path)
  *   -> publicRouters            (bootstrap only: POST /enroll/exchange)
- *   -> requireCapability        (every route below here has req.walkie)
+ *   -> requireCapability        (every route below here has req.collabcast)
  *   -> routers
  *   -> 404 envelope
  *   -> terminal error handler
@@ -20,7 +20,7 @@
 import express from 'express';
 import { createEvents } from './events.js';
 import { rejectLegacyAuthorityFields, requireCapability } from './auth.js';
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { StoreError } from '../store/errors.js';
 import { SCHEMA_VERSION } from '../store/db.js';
 
@@ -157,7 +157,7 @@ export function statusForCode(code) {
  * @returns {{status:number, body:{error:{code:string, message:string, detail?:object}}}}
  */
 export function renderError(err) {
-  if (err instanceof WalkieError) {
+  if (err instanceof CollabcastError) {
     return { status: statusForCode(err.code), body: err.toEnvelope() };
   }
   if (err instanceof StoreError) {
@@ -199,13 +199,13 @@ export function createServer({
   if (!store || typeof store.db !== 'object') {
     // Fail closed. A store-less server would mount every injected router with no authentication
     // gate at all, so this can never be an optional argument.
-    throw new WalkieError('internal', 'createServer requires an open authority store');
+    throw new CollabcastError('internal', 'createServer requires an open authority store');
   }
   if (!config || typeof config !== 'object') {
-    throw new WalkieError('config_invalid', 'createServer requires a validated config');
+    throw new CollabcastError('config_invalid', 'createServer requires a validated config');
   }
   if (typeof namespace !== 'string' || namespace.length === 0) {
-    throw new WalkieError('namespace_unresolved', 'createServer requires a namespace');
+    throw new CollabcastError('namespace_unresolved', 'createServer requires a namespace');
   }
 
   const app = express();

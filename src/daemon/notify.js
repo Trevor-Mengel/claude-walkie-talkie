@@ -10,7 +10,7 @@
  *    suppression is a field read: this stays a pure presentation consumer, testable with a
  *    bare EventEmitter and with no store lookup on the hot path of every posted message.
  *  - `permit.required` had a subscription here whose body told the operator to run
- *    `walkie permit <id> --once`. Nothing emits that event any more and that command no
+ *    `collabcast permit <id> --once`. Nothing emits that event any more and that command no
  *    longer exists, so the only thing the listener could ever do was instruct a human to
  *    run a command that would fail. Deleted rather than reworded.
  *  - `notifier.notify` reports a failed spawn (headless box, no notifier binary) through
@@ -21,7 +21,7 @@
 
 import notifier from 'node-notifier';
 
-const TITLE = 'walkie-talkie';
+const TITLE = 'collabcast';
 
 /** The role held by the human this notifier exists to interrupt. */
 const OPERATOR_ROLE = 'operator';
@@ -48,7 +48,7 @@ function writeDiagnostic(entry) {
  */
 export function attachNotifier({ events, projectName = 'project', log = writeDiagnostic }) {
   // Kill-switch: tests (and headless CI) must never fire real desktop notifications.
-  if (process.env.WALKIE_NO_NOTIFY) return;
+  if (process.env.COLLABCAST_NO_NOTIFY) return;
 
   let reported = false;
   /**

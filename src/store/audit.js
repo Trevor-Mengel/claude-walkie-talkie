@@ -79,7 +79,7 @@ const HEAD_SECRET_WORDS = new Map([
  * Anything that looks like one of our base64url secrets or any other long opaque blob.
  *
  * The 24-character floor is load-bearing and deliberately sits in the gap between the two
- * shapes we care about: a walkie secret is 32 bytes base64url == 43 characters, while every
+ * shapes we care about: a collabcast secret is 32 bytes base64url == 43 characters, while every
  * store id (`prn_`, `cap_`, `apr_`, `pmt_` + 16 hex) is exactly 20 characters. Ids therefore
  * stay legible in audit rows and secrets do not. Changing the id format past 23 characters
  * would silently start redacting ids, so the boundary is pinned by a test.

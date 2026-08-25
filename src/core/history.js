@@ -31,6 +31,10 @@ function filename(sessionsDir, msgId) {
  * ON-DISK FORMAT CHANGE: revision blocks gain two comment lines around the body. Files
  * written before this change have no fence at all and are read by the legacy path below.
  */
+// DELIBERATELY NOT RENAMED to `collabcast:` with the rest of the product: the `walkie:`
+// prefix is the on-disk marker namespace, `isValidMessageBody` rejects that exact literal
+// to keep the fence unforgeable, and changing it would require rewriting every history
+// file. It rides the v0.2 -> v0.3 importer — do not "finish" the rename here.
 const REV_OPEN_RE = /^<!--\s*walkie:rev\s+id=(\S+)\s+revision=(\S+)\s*-->$/;
 const REV_CLOSE_RE = /^<!--\s*walkie:rev-end\s+id=(\S+)\s+revision=(\S+)\s*-->$/;
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { walkieError } from '../../identity/errors.js';
+import { collabcastError } from '../../identity/errors.js';
 import { exchangeEnrollmentCode } from '../../authority/enroll.js';
 import { scopesForRole } from '../../authority/policy.js';
 import { createPrincipal } from '../../store/principals.js';
@@ -13,6 +13,21 @@ const DELEGATE_FIELDS = ['role', 'scopes', 'ttlSeconds', 'paseoAgentId'];
 
 /** A root capability may only hand down a working identity, never another root. */
 const DELEGABLE_ROLES = Object.freeze(['goal_hub', 'listener']);
+
+/**
+ * Roles whose capability may act as a delegation PARENT.
+ *
+ * `root` is the agent path: enrolled through an approval dialog, then handing down narrower
+ * identities. `operator` is the human path: `collabcast enroll --recovery` is documented as
+ * minting a capability directly from the operator credential, and it reaches this same route —
+ * so while this list said `root` alone, the only break-glass command in the product answered
+ * `forbidden` to the only credential it is supposed to use.
+ *
+ * Widening stops here. Every narrowing rule still holds: `issueCapability` refuses a child that
+ * outlives or out-scopes its parent, and `DELEGABLE_ROLES` above means neither parent can mint
+ * another root or another operator.
+ */
+const DELEGATING_ROLES = Object.freeze(['root', 'operator']);
 
 /**
  * Bootstrap. **Mounted before authentication** — this route is how a client that
@@ -53,7 +68,7 @@ export function enrollRoutes({ store } = {}) {
 }
 
 /**
- * Delegation: a root capability mints a narrower one for a new principal.
+ * Delegation: a root or operator capability mints a narrower one for a new principal.
  *
  * Every narrowing rule is enforced by `issueCapability` against the parent row
  * — scopes may only shrink, expiry may only shorten — so a widened request is
@@ -72,11 +87,11 @@ export function delegateRoutes({ store, namespace } = {}) {
     '/delegate',
     requireScope('enroll:delegate'),
     handler(async (req, res) => {
-      const { principal: parentPrincipal, capability: parentCapability } = req.walkie;
+      const { principal: parentPrincipal, capability: parentCapability } = req.collabcast;
       // The scope is the authority; the role check is a second, independent
       // fence so a mis-issued capability cannot delegate on its own.
-      if (parentPrincipal.role !== 'root') {
-        throw walkieError('forbidden', 'only the root principal may delegate', {
+      if (!DELEGATING_ROLES.includes(parentPrincipal.role)) {
+        throw collabcastError('forbidden', 'only a root or operator principal may delegate', {
           role: parentPrincipal.role
         });
       }
@@ -84,30 +99,30 @@ export function delegateRoutes({ store, namespace } = {}) {
       const fields = readBody(req.body, DELEGATE_FIELDS);
       const role = fields.role;
       if (!DELEGABLE_ROLES.includes(role)) {
-        throw walkieError('invalid_request', 'role must be goal_hub or listener', {
+        throw collabcastError('invalid_request', 'role must be goal_hub or listener', {
           role: String(role)
         });
       }
       if (!Array.isArray(fields.scopes) || fields.scopes.length === 0) {
-        throw walkieError('invalid_request', 'scopes must be a non-empty array');
+        throw collabcastError('invalid_request', 'scopes must be a non-empty array');
       }
       const ttlSeconds = fields.ttlSeconds;
       if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0) {
-        throw walkieError('invalid_request', 'ttlSeconds must be a positive integer');
+        throw collabcastError('invalid_request', 'ttlSeconds must be a positive integer');
       }
       const paseoAgentId =
         fields.paseoAgentId === undefined || fields.paseoAgentId === null
           ? null
           : fields.paseoAgentId;
       if (paseoAgentId !== null && typeof paseoAgentId !== 'string') {
-        throw walkieError('invalid_request', 'paseoAgentId must be a string');
+        throw collabcastError('invalid_request', 'paseoAgentId must be a string');
       }
 
       const scopes = [...new Set(fields.scopes)];
       const allowed = new Set(scopesForRole(role));
       const outside = scopes.filter((scope) => !allowed.has(scope));
       if (outside.length > 0) {
-        throw walkieError('forbidden', 'scopes exceed the role allowlist', { scopes: outside });
+        throw collabcastError('forbidden', 'scopes exceed the role allowlist', { scopes: outside });
       }
 
       const issued = store.tx((tx) => {

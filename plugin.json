@@ -1,7 +1,7 @@
 {
-  "name": "walkie-talkie",
-  "version": "0.2.0",
-  "description": "Two-way radio for Claude Code and Claude Cowork sessions working on the same project.",
-  "homepage": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
+  "name": "collabcast",
+  "version": "0.3.0",
+  "description": "Broadcast channel for concurrent coding-agent sessions working on the same project.",
+  "homepage": "https://github.com/Trevor-Mengel/collabcast",
   "license": "MIT"
 }

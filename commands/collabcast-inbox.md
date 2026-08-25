@@ -1,8 +1,8 @@
 ---
-description: Show new messages on the walkie-talkie channel since this session last checked
+description: Show new messages on the collabcast channel since this session last checked
 ---
 
-Call the `walkie_inbox` MCP tool. Render the response as a short list — one line per message:
+Call the `collabcast_inbox` MCP tool. Render the response as a short list — one line per message:
 
 > "From @<alias> (type): <first line of body>"
 

@@ -19,7 +19,7 @@ import { openStore } from '../../src/store/db.js';
 import { createServer, rejectCrossOrigin } from '../../src/daemon/server.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
-const NAMESPACE = 'walkie-talkie';
+const NAMESPACE = 'collabcast';
 
 let base;
 let store;
@@ -46,7 +46,7 @@ function runGuard(headers) {
 
 beforeEach(() => {
   base = createFixtureDir('wk-sec-');
-  store = openStore({ path: join(base, 'store', 'walkie.db'), namespace: NAMESPACE });
+  store = openStore({ path: join(base, 'store', 'collabcast.db'), namespace: NAMESPACE });
   app = createServer({
     store,
     config: { ...DEFAULT_CONFIG, namespace: NAMESPACE },
@@ -110,7 +110,7 @@ describe('security: Host header validation', () => {
   });
 
   it('rejects a non-loopback Host', async () => {
-    for (const host of ['evil.com', 'evil.com:8080', 'walkie.example.org']) {
+    for (const host of ['evil.com', 'evil.com:8080', 'collabcast.example.org']) {
       const res = await request(app).get('/health').set('Host', host);
       expect(res.status, host).toBe(403);
       expect(res.body.error.code, host).toBe('forbidden');

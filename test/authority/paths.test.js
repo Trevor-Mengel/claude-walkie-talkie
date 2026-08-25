@@ -8,7 +8,9 @@ import {
   ensureRuntimeDir,
   hookSecretPath,
   MAX_SOCKET_PATH_BYTES,
-  RUNTIME_ROOT_ENV
+  operatorCredentialPath,
+  RUNTIME_ROOT_ENV,
+  serviceStderrPath
 } from '../../src/authority/paths.js';
 import { createFixture, modeOf } from './helpers.js';
 
@@ -31,25 +33,25 @@ function codeOf(fn) {
 describe('authorityRuntimeDir', () => {
   test('defaults to the in-tree run directory', () => {
     expect(authorityRuntimeDir('/projects/app', undefined, {})).toBe(
-      '/projects/app/.walkie-talkie/run'
+      '/projects/app/.collabcast/run'
     );
   });
 
   test('the env var overrides the in-tree default', () => {
-    expect(authorityRuntimeDir('/projects/app', undefined, { [RUNTIME_ROOT_ENV]: '/run/walkie' })).toBe(
-      '/run/walkie'
+    expect(authorityRuntimeDir('/projects/app', undefined, { [RUNTIME_ROOT_ENV]: '/run/collabcast' })).toBe(
+      '/run/collabcast'
     );
   });
 
   test('an explicit override outranks the env var', () => {
     expect(
-      authorityRuntimeDir('/projects/app', '/explicit', { [RUNTIME_ROOT_ENV]: '/run/walkie' })
+      authorityRuntimeDir('/projects/app', '/explicit', { [RUNTIME_ROOT_ENV]: '/run/collabcast' })
     ).toBe('/explicit');
   });
 
   test('an empty env value falls through to the default', () => {
     expect(authorityRuntimeDir('/projects/app', undefined, { [RUNTIME_ROOT_ENV]: '' })).toBe(
-      '/projects/app/.walkie-talkie/run'
+      '/projects/app/.collabcast/run'
     );
   });
 
@@ -64,20 +66,29 @@ describe('authorityRuntimeDir', () => {
   });
 });
 
-describe('socket and secret addresses', () => {
-  test('both live in the runtime directory under their canonical names', () => {
-    expect(authoritySocketPath('/run/walkie')).toBe('/run/walkie/authority.sock');
-    expect(hookSecretPath('/run/walkie')).toBe('/run/walkie/hook.secret');
+describe('runtime addresses', () => {
+  test('all four live in the runtime directory under their canonical names', () => {
+    // Every one of these is written by one half of the product and read by the other. A second
+    // spelling anywhere is a file nobody finds, which is exactly how `operator.cred` came to be
+    // created by the test suite and by nothing in `src/`.
+    expect(authoritySocketPath('/run/collabcast')).toBe('/run/collabcast/authority.sock');
+    expect(hookSecretPath('/run/collabcast')).toBe('/run/collabcast/hook.secret');
+    expect(operatorCredentialPath('/run/collabcast')).toBe('/run/collabcast/operator.cred');
+    expect(serviceStderrPath('/run/collabcast')).toBe('/run/collabcast/service.err');
   });
 
   test('an explicit override is returned verbatim', () => {
-    expect(authoritySocketPath('/run/walkie', '/tmp/a.sock')).toBe('/tmp/a.sock');
-    expect(hookSecretPath('/run/walkie', '/tmp/s')).toBe('/tmp/s');
+    expect(authoritySocketPath('/run/collabcast', '/tmp/a.sock')).toBe('/tmp/a.sock');
+    expect(hookSecretPath('/run/collabcast', '/tmp/s')).toBe('/tmp/s');
   });
 
   test('a missing runtime root is refused rather than resolved against cwd', () => {
     expect(codeOf(() => authoritySocketPath(undefined))).toBe('config_invalid');
     expect(codeOf(() => hookSecretPath(undefined))).toBe('config_invalid');
+    expect(codeOf(() => operatorCredentialPath(undefined))).toBe('config_invalid');
+    expect(codeOf(() => serviceStderrPath(undefined))).toBe('config_invalid');
+    // A relative root would resolve against cwd, which is a different namespace's directory.
+    expect(codeOf(() => operatorCredentialPath('run'))).toBe('config_invalid');
   });
 });
 

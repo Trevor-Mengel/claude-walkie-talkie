@@ -8,14 +8,18 @@ import {
   SubscribeRequestSchema,
   UnsubscribeRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
-import { isWalkieError } from '../identity/errors.js';
+import { isCollabcastError } from '../identity/errors.js';
 import { buildTools } from './tools.js';
 import { buildResources } from './resources.js';
 import { clientForRoot } from './http-client.js';
 import { findProjectRoot } from './project.js';
 
-const SERVER_NAME = 'walkie-talkie';
-const SERVER_VERSION = '0.3.0';
+// Exported so `test/packaging/identity.test.js` can assert they agree with package.json.
+// The version was hardcoded here at 0.3.0 while package.json still said 0.2.0, and nothing
+// caught it — the same silent-drift class as a test pinning a literal that duplicates a
+// constant. Asserting the agreement is what makes the duplication safe.
+export const SERVER_NAME = 'collabcast';
+export const SERVER_VERSION = '0.3.0';
 
 /**
  * Build the MCP server without connecting a transport.
@@ -25,11 +29,11 @@ const SERVER_VERSION = '0.3.0';
  * - it does not spawn a daemon. v0.2 called `ensureDaemon(projectRoot)` here, so merely
  *   launching an MCP client left a detached, unsupervised service behind. A client connects or
  *   it fails with guidance; it never starts anything.
- * - it does not read identity from the environment. `WALKIE_TOOL` and `WALKIE_ALIAS` are no
+ * - it does not read identity from the environment. `COLLABCAST_TOOL` and `COLLABCAST_ALIAS` are no
  *   longer identity inputs: an alias is a claim on the channel and cannot be made by setting a
  *   variable.
  * - it does not require a capability to construct. A session with no injected credential comes
- *   up unenrolled so the model can call `walkie_enroll`; every other tool then fails with one
+ *   up unenrolled so the model can call `collabcast_enroll`; every other tool then fails with one
  *   consistent, actionable message until the operator approves.
  *
  * @param {{env?:Record<string,string|undefined>, cwd?:string, runtimeRoot?:string}} [opts]
@@ -47,8 +51,8 @@ export async function createMcpServer({ env = process.env, cwd = process.cwd(), 
   } catch (err) {
     injectionError = err;
     process.stderr.write(
-      `[walkie-talkie-mcp] injected capability rejected (${isWalkieError(err) ? err.code : 'error'}): ` +
-        `${isWalkieError(err) ? err.message : 'unusable credential'}\n`
+      `[collabcast-mcp] injected capability rejected (${isCollabcastError(err) ? err.code : 'error'}): ` +
+        `${isCollabcastError(err) ? err.message : 'unusable credential'}\n`
     );
   }
 
@@ -73,7 +77,7 @@ export async function createMcpServer({ env = process.env, cwd = process.cwd(), 
 }
 
 /**
- * Process entry point. Called by `bin/walkie-talkie-mcp.js`; never on import, so tests can
+ * Process entry point. Called by `bin/collabcast-mcp.js`; never on import, so tests can
  * build a server without connecting stdio.
  */
 export async function runMcpServer() {
@@ -81,8 +85,8 @@ export async function runMcpServer() {
     const { server } = await createMcpServer();
     await server.connect(new StdioServerTransport());
   } catch (err) {
-    const code = isWalkieError(err) ? err.code : 'internal';
-    process.stderr.write(`[walkie-talkie-mcp] fatal [${code}]: ${err.message}\n`);
+    const code = isCollabcastError(err) ? err.code : 'internal';
+    process.stderr.write(`[collabcast-mcp] fatal [${code}]: ${err.message}\n`);
     process.exitCode = 1;
   }
 }

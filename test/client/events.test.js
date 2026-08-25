@@ -2,7 +2,7 @@
 //
 // `openEventStream` resolves once and then delivers frames for the life of the process, so the
 // only thing a consumer can act on is `onError`. A stream that faults and says nothing leaves the
-// consumer — `walkie tail`, and the MCP server's resource subscriptions — believing it is still
+// consumer — `collabcast tail`, and the MCP server's resource subscriptions — believing it is still
 // subscribed while receiving nothing at all. These tests drive real faults down a real Unix
 // socket and assert what reaches the callback.
 
@@ -23,7 +23,7 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-const CONTEXT = Object.freeze({ namespace: 'walkie-talkie', mode: 'standalone' });
+const CONTEXT = Object.freeze({ namespace: 'collabcast', mode: 'standalone' });
 
 /** One well-formed SSE frame, chunk-framed. 0x25 = 37 bytes of payload. */
 const EVENT_CHUNK = '25\r\nevent: message.posted\ndata: {"a":1}\n\n\r\n';
@@ -40,7 +40,7 @@ const EVENT_CHUNK = '25\r\nevent: message.posted\ndata: {"a":1}\n\n\r\n';
  * @returns {Promise<string>} the socket path
  */
 function feed(afterEstablished) {
-  const dir = createFixtureDir('walkie-events-');
+  const dir = createFixtureDir('collabcast-events-');
   dirs.push(dir);
   const socketPath = join(dir, 'e.sock');
   const server = net.createServer((socket) => {
@@ -65,7 +65,7 @@ function feed(afterEstablished) {
 
 /** A listener that answers with a status and nothing else. */
 function refusing(status) {
-  const dir = createFixtureDir('walkie-events-');
+  const dir = createFixtureDir('collabcast-events-');
   dirs.push(dir);
   const socketPath = join(dir, 'e.sock');
   const server = net.createServer((socket) => {
@@ -166,7 +166,7 @@ describe('openEventStream fault reporting', () => {
   it('rejects a connect-time failure without also reporting it to onError', async () => {
     // The caller never got a handle, so it has nothing to unsubscribe and no reason to hear
     // about the same failure twice.
-    const dir = createFixtureDir('walkie-events-');
+    const dir = createFixtureDir('collabcast-events-');
     dirs.push(dir);
     const { errors, onError, onEvent } = collector();
 

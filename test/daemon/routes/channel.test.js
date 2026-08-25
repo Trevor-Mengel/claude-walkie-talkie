@@ -271,7 +271,7 @@ describe('PATCH /channel/message/:id — ownership', () => {
     expect(readFileSync(fx.channelPath, 'utf8')).not.toContain('moderator rewrite');
   });
 
-  test('an edit body carrying a walkie marker is rejected (the v0.2 forgery path)', async () => {
+  test('an edit body carrying a collabcast marker is rejected (the v0.2 forgery path)', async () => {
     const fx = createFixture();
     const author = mintActor(fx.store, { alias: 'author' });
     const id = await post(fx.app, author, 'honest');

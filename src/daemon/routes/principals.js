@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { walkieError } from '../../identity/errors.js';
+import { collabcastError } from '../../identity/errors.js';
 import { listPrincipals, setAlias } from '../../store/principals.js';
 import { audit } from '../../store/audit.js';
 import { requireScope } from '../auth.js';
@@ -28,7 +28,7 @@ export function principalsRoutes({ store, namespace } = {}) {
    * The roster. Presentation only: id, role, alias, creation time.
    *
    * Never a token, never a token hash, and never `paseoAgentId` — that field
-   * names an external Paseo agent and correlating it to a walkie principal is
+   * names an external Paseo agent and correlating it to a collabcast principal is
    * exactly the cross-system linkage the roster must not hand out.
    */
   router.get(
@@ -60,7 +60,7 @@ export function principalsRoutes({ store, namespace } = {}) {
   router.get(
     '/self',
     handler(async (req, res) => {
-      const { principal, capability } = req.walkie;
+      const { principal, capability } = req.collabcast;
       res.json({
         principalId: principal.id,
         role: principal.role,
@@ -85,10 +85,10 @@ export function principalsRoutes({ store, namespace } = {}) {
     '/self/alias',
     requireScope('self:alias'),
     handler(async (req, res) => {
-      const principal = req.walkie.principal;
+      const principal = req.collabcast.principal;
       const alias = readBody(req.body, ALIAS_FIELDS).alias;
       if (typeof alias !== 'string' || alias.trim().length === 0) {
-        throw walkieError('invalid_request', 'alias is required');
+        throw collabcastError('invalid_request', 'alias is required');
       }
 
       // One transaction for the rename and the row that records it. A committed

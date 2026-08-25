@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 
 export async function logsCommand(opts) {
-  const dir = join(process.cwd(), '.walkie-talkie', 'logs');
+  const dir = join(process.cwd(), '.collabcast', 'logs');
   if (!existsSync(dir)) {
     console.log('(no logs)');
     return;

@@ -6,14 +6,14 @@ import { findProjectRoot } from '../../src/mcp-server/project.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
 describe('mcp project discovery', () => {
-  test('uses WALKIE_PROJECT_ROOT when set', () => {
+  test('uses COLLABCAST_PROJECT_ROOT when set', () => {
     const project = createTmpProject();
-    const root = findProjectRoot({ env: { WALKIE_PROJECT_ROOT: project.root }, cwd: '/' });
+    const root = findProjectRoot({ env: { COLLABCAST_PROJECT_ROOT: project.root }, cwd: '/' });
     expect(root).toBe(project.root);
     cleanup(project);
   });
 
-  test('walks up from cwd looking for .walkie-talkie/', () => {
+  test('walks up from cwd looking for .collabcast/', () => {
     const project = createTmpProject();
     const nested = join(project.root, 'src', 'deep');
     mkdirSync(nested, { recursive: true });
@@ -22,12 +22,12 @@ describe('mcp project discovery', () => {
     cleanup(project);
   });
 
-  test('throws if no .walkie-talkie/ found anywhere up the tree', () => {
+  test('throws if no .collabcast/ found anywhere up the tree', () => {
     // Leaked its directory on every run until the leak detector stopped being
     // gated on a two-entry prefix list and started seeing every fixture.
-    const orphan = createFixtureDir('walkie-orphan-');
+    const orphan = createFixtureDir('collabcast-orphan-');
     try {
-      expect(() => findProjectRoot({ env: {}, cwd: orphan })).toThrow(/no \.walkie-talkie/i);
+      expect(() => findProjectRoot({ env: {}, cwd: orphan })).toThrow(/no \.collabcast/i);
     } finally {
       rmSync(orphan, { recursive: true, force: true });
     }

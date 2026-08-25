@@ -8,7 +8,7 @@ export { now };
  *
  * `requireTtl` previously checked only "positive integer", which let a caller mint a
  * credential expiring in the year 33715 — and, past `Date`'s representable range, made
- * `plusSeconds` throw a bare `RangeError` whose `code` is `undefined`, so `toWalkie` passed it
+ * `plusSeconds` throw a bare `RangeError` whose `code` is `undefined`, so `toCollabcast` passed it
  * through and a plainly invalid `ttlSeconds` on `POST /delegate` was reported to the caller as
  * `500 internal`. This is the one surface where a caller is minting credentials, so a client
  * error must never read as a server fault. A year is already far past any legitimate TTL —

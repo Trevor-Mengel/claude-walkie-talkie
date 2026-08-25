@@ -1,5 +1,5 @@
 /**
- * The listening surface of `walkie-svc`.
+ * The listening surface of `collabcast-svc`.
  *
  * There is exactly one service process per namespace and its primary transport is a Unix domain
  * socket. That is the whole authorization story for "which namespace is this": the socket path IS
@@ -17,7 +17,7 @@ import { chmodSync, statSync, unlinkSync } from 'node:fs';
 import { createServer as createHttpServer } from 'node:http';
 import { connect } from 'node:net';
 import { dirname, join } from 'node:path';
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { LOOPBACK_HOSTS, SOCKET_DIR_MODE } from '../config/schema.js';
 import {
   claimSocketAddress,
@@ -33,8 +33,8 @@ import {
   ensureRuntimeDir
 } from '../authority/paths.js';
 
-export const WALKIE_SOCKET_FILENAME = 'walkie.sock';
-export const PID_FILENAME = 'walkie.pid';
+export const COLLABCAST_SOCKET_FILENAME = 'collabcast.sock';
+export const PID_FILENAME = 'collabcast.pid';
 
 /** A listening socket is a credential: owner-only, always. */
 export const SOCKET_FILE_MODE = 0o600;
@@ -46,7 +46,7 @@ const PROBE_TIMEOUT_MS = 500;
 const BIND_TIMEOUT_MS = 5000;
 
 function fail(code, message, detail) {
-  throw new WalkieError(code, message, detail);
+  throw new CollabcastError(code, message, detail);
 }
 
 /**
@@ -73,8 +73,8 @@ export function assertBindableSocketPath(socketPath) {
  *
  * Both sockets — the HTTP transport socket and the authority enrollment socket — resolve through
  * `authorityRuntimeDir`, so they can never drift into separate directories with separate
- * permissions. Precedence is that resolver's: explicit `runtimeRoot`, then `WALKIE_RUNTIME_ROOT`,
- * then `<canonicalRoot>/.walkie-talkie/run`.
+ * permissions. Precedence is that resolver's: explicit `runtimeRoot`, then `COLLABCAST_RUNTIME_ROOT`,
+ * then `<canonicalRoot>/.collabcast/run`.
  *
  * @param {{canonicalRoot?:string, config?:object, runtimeRoot?:string,
  *   env?:Record<string,string|undefined>}} opts
@@ -85,7 +85,7 @@ export function resolveTransportPaths({ canonicalRoot, config, runtimeRoot, env 
   const configured = config?.transport?.socketPath ?? null;
   return {
     runtimeRoot: root,
-    socketPath: configured || join(root, WALKIE_SOCKET_FILENAME),
+    socketPath: configured || join(root, COLLABCAST_SOCKET_FILENAME),
     authoritySocketPath: authoritySocketPath(root),
     pidPath: join(root, PID_FILENAME)
   };
@@ -167,7 +167,7 @@ export async function reclaimSocketPath(socketPath, { probe = probeSocketState }
   if (state === 'occupied') {
     fail(
       'conflict',
-      'another walkie service is already listening for this namespace; stop it before starting a new one'
+      'another collabcast service is already listening for this namespace; stop it before starting a new one'
     );
   }
   if (state === 'unclaimed') {
@@ -187,7 +187,7 @@ export async function reclaimSocketPath(socketPath, { probe = probeSocketState }
 }
 
 /**
- * Resolves once `server` is listening, or rejects with a WalkieError.
+ * Resolves once `server` is listening, or rejects with a CollabcastError.
  * @param {import('node:http').Server} server
  * @param {() => void} bind
  */
@@ -198,7 +198,7 @@ function awaitListening(server, bind) {
       if (settled) return;
       settled = true;
       server.close();
-      reject(new WalkieError('internal', 'the transport did not begin listening in time'));
+      reject(new CollabcastError('internal', 'the transport did not begin listening in time'));
     }, BIND_TIMEOUT_MS);
     const done = (err) => {
       if (settled) return;
@@ -214,7 +214,7 @@ function awaitListening(server, bind) {
         err.code === 'EADDRINUSE' || err.code === 'EACCES' || err.code === 'EEXIST'
           ? 'conflict'
           : 'internal';
-      done(new WalkieError(code, 'the transport could not bind', { reason: err.code }));
+      done(new CollabcastError(code, 'the transport could not bind', { reason: err.code }));
     }
     function onListening() {
       done(null);

@@ -1,4 +1,4 @@
-// `walkie_reply` / `walkie_edit` / `walkie_archive`.
+// `collabcast_reply` / `collabcast_edit` / `collabcast_archive`.
 //
 // The three v0.2 properties are preserved: a reply carries `type: 'reply'` and its `replyTo`, an
 // edit of your own message bumps the revision, and an archived message drops out of a default
@@ -33,9 +33,9 @@ async function harness(namespace, extraRoles = []) {
   return { stack, client };
 }
 
-describe('walkie_reply / walkie_edit / walkie_archive', () => {
+describe('collabcast_reply / collabcast_edit / collabcast_archive', () => {
   test('reply sets type=reply and replyTo', async () => {
-    const { stack, client } = await harness('walkie-red1');
+    const { stack, client } = await harness('collabcast-red1');
     try {
       const seed = await stack.request('POST', '/channel/message', {
         token: stack.tokens.root,
@@ -62,7 +62,7 @@ describe('walkie_reply / walkie_edit / walkie_archive', () => {
   }, 20000);
 
   test('edit bumps revision on own message', async () => {
-    const { stack, client } = await harness('walkie-red2');
+    const { stack, client } = await harness('collabcast-red2');
     try {
       const posted = await client.talk('original');
       const edited = await client.edit(posted.id, 'revised');
@@ -85,7 +85,7 @@ describe('walkie_reply / walkie_edit / walkie_archive', () => {
   }, 20000);
 
   test('archive marks the message and excludes it from default reads', async () => {
-    const { client } = await harness('walkie-red3');
+    const { client } = await harness('collabcast-red3');
     try {
       const posted = await client.talk('temp');
       const archived = await client.archive(posted.id, 'test');
@@ -102,7 +102,7 @@ describe('walkie_reply / walkie_edit / walkie_archive', () => {
   }, 20000);
 
   test('a different principal cannot edit the first principal\'s message: 403 not_owner', async () => {
-    const { stack, client } = await harness('walkie-red4', [
+    const { stack, client } = await harness('collabcast-red4', [
       { name: 'other', role: 'goal_hub' }
     ]);
     const other = await spawnMockClient({
@@ -112,7 +112,7 @@ describe('walkie_reply / walkie_edit / walkie_archive', () => {
     try {
       const posted = await client.talk('mine, not yours');
 
-      const attempt = await other.callRaw('walkie_edit', { id: posted.id, body: 'hijacked' });
+      const attempt = await other.callRaw('collabcast_edit', { id: posted.id, body: 'hijacked' });
       expect(attempt.isError).toBe(true);
       expect(attempt.payload.code).toBe('not_owner');
       expect(attempt.payload.detail).toEqual({ id: posted.id });
@@ -138,7 +138,7 @@ describe('walkie_reply / walkie_edit / walkie_archive', () => {
   }, 25000);
 
   test('archiving another principal\'s message is not_owner, but an operator may moderate', async () => {
-    const { stack, client } = await harness('walkie-red5', [
+    const { stack, client } = await harness('collabcast-red5', [
       { name: 'other', role: 'goal_hub' },
       'operator'
     ]);
@@ -149,7 +149,7 @@ describe('walkie_reply / walkie_edit / walkie_archive', () => {
     try {
       const posted = await client.talk('moderate me');
 
-      const attempt = await other.callRaw('walkie_archive', { id: posted.id });
+      const attempt = await other.callRaw('collabcast_archive', { id: posted.id });
       expect(attempt.isError).toBe(true);
       expect(attempt.payload.code).toBe('not_owner');
       expect(attempt.payload.hint).toMatch(/operator moderating the channel/);

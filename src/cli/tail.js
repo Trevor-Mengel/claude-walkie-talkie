@@ -16,7 +16,7 @@ export async function tailCommand() {
       process.stdout.write(`[${name}] ${JSON.stringify(payload)}\n`);
     },
     (err) => {
-      process.stderr.write(`walkie: event feed closed (${err?.code ?? 'error'})\n`);
+      process.stderr.write(`collabcast: event feed closed (${err?.code ?? 'error'})\n`);
       process.exitCode = 1;
       stream?.close();
       stream = null;

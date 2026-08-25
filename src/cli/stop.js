@@ -1,15 +1,15 @@
 import { stopDaemon } from '../daemon/lifecycle.js';
 import { contextForProject } from './client.js';
-import { walkieError } from '../identity/errors.js';
+import { collabcastError } from '../identity/errors.js';
 
 /** Stop the service for this namespace — standalone mode only. */
 export async function stopCommand() {
   const context = contextForProject();
   if (context.mode === 'managed') {
-    throw walkieError(
+    throw collabcastError(
       'forbidden',
-      `namespace "${context.namespace}" is managed: stopping its walkie service is Paseo's ` +
-        'job, not a client\'s. Stop the supervised walkie-svc through Paseo.',
+      `namespace "${context.namespace}" is managed: stopping its collabcast service is Paseo's ` +
+        'job, not a client\'s. Stop the supervised collabcast-svc through Paseo.',
       { namespace: context.namespace, mode: context.mode }
     );
   }

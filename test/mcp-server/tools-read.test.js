@@ -1,9 +1,9 @@
-// `walkie_read`: the newest-first window, and the archived-message opt-in.
+// `collabcast_read`: the newest-first window, and the archived-message opt-in.
 //
 // Both properties are v0.2's and both are preserved verbatim. What changed underneath is how the
 // messages get there: v0.2 posted them with `clientForProject(root).post({ fromSessionId:
 // 'operator', ... })` — authorship stated in the request body — and read them back through a
-// child that had auto-joined from `WALKIE_TOOL`. Now the poster authenticates with a real
+// child that had auto-joined from `COLLABCAST_TOOL`. Now the poster authenticates with a real
 // capability and authorship is derived from it, so this file also incidentally proves the
 // ordering survives the identity cutover.
 
@@ -34,9 +34,9 @@ async function post(stack, body) {
   return res.body.id;
 }
 
-describe('walkie_read', () => {
+describe('collabcast_read', () => {
   test('returns the latest N messages newest-first', async () => {
-    const { stack, client } = await harness('walkie-read1');
+    const { stack, client } = await harness('collabcast-read1');
     try {
       for (const body of ['m1', 'm2', 'm3']) await post(stack, body);
 
@@ -55,7 +55,7 @@ describe('walkie_read', () => {
   }, 20000);
 
   test('include_archived=true returns archived messages too', async () => {
-    const { stack, client } = await harness('walkie-read2');
+    const { stack, client } = await harness('collabcast-read2');
     try {
       const id = await post(stack, 'gone');
       const archived = await stack.request('POST', `/channel/message/${id}/archive`, {
@@ -77,7 +77,7 @@ describe('walkie_read', () => {
   }, 20000);
 
   test('reading is authorship-blind but never anonymous: the author is the posting principal', async () => {
-    const { stack, client } = await harness('walkie-read3');
+    const { stack, client } = await harness('collabcast-read3');
     try {
       await post(stack, 'from root');
       await client.talk('from the hub');

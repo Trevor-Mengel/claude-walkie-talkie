@@ -28,7 +28,7 @@ afterEach(() => {
   fixture = null;
 });
 
-/** An env with no ambient WALKIE_HOOK_SECRET, so file behaviour is what we measure. */
+/** An env with no ambient COLLABCAST_HOOK_SECRET, so file behaviour is what we measure. */
 const NO_ENV = Object.freeze({});
 
 function codeOf(fn) {

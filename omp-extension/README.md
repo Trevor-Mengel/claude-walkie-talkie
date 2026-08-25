@@ -1,7 +1,7 @@
-# Walkie enrollment gate (OMP hook)
+# Collabcast enrollment gate (OMP hook)
 
-An operator-installed OMP hook. It stands between an agent asking to join a Walkie channel
-and the authority that issues credentials: the agent's `walkie_enroll` call is intercepted,
+An operator-installed OMP hook. It stands between an agent asking to join a Collabcast channel
+and the authority that issues credentials: the agent's `collabcast_enroll` call is intercepted,
 the request is shown to **you**, and only an explicit `Approve` causes a one-use enrollment
 code to be fetched and injected into the tool's raw arguments.
 
@@ -9,18 +9,18 @@ The model never authors and never sees that code. It cannot enroll itself.
 
 ## Files
 
-| File                | Role                                                               |
-| ------------------- | ------------------------------------------------------------------ |
-| `walkie-enroll.js`  | the hook — the only file OMP loads directly                        |
-| `gate.js`           | pure decision logic (tool-name matching + the approval truth table) |
-| `authority.js`      | newline-delimited-JSON client for the authority's Unix socket        |
-| `redact.js`         | redactor every log entry passes through                             |
+| File                     | Role                                                                |
+| ------------------------ | ------------------------------------------------------------------- |
+| `collabcast-enroll.js`   | the hook — the only file OMP loads directly                         |
+| `gate.js`                | pure decision logic (tool-name matching + the approval truth table) |
+| `authority.js`           | newline-delimited-JSON client for the authority's Unix socket       |
+| `redact.js`              | redactor every log entry passes through                             |
 
 They are siblings by design: install the **whole directory**, not just the entry file.
 
 These four files import nothing outside `node:fs` and `node:net` — no dependency on the
-rest of the Walkie source tree, so the directory is self-contained and copyable. The hook
-is loaded by OMP's own runtime, not by the `walkie` CLI; the surrounding package declares
+rest of the Collabcast source tree, so the directory is self-contained and copyable. The hook
+is loaded by OMP's own runtime, not by the `collabcast` CLI; the surrounding package declares
 `engines.node >= 22`, which is the floor to assume if you run any of this under plain Node.
 
 ## Install
@@ -28,14 +28,14 @@ is loaded by OMP's own runtime, not by the `walkie` CLI; the surrounding package
 Copy the directory somewhere stable and point OMP at the entry file with an absolute path:
 
 ```sh
-mkdir -p ~/.omp/walkie
-cp -R /path/to/claude-walkie-talkie/omp-extension/. ~/.omp/walkie/
+mkdir -p ~/.omp/collabcast
+cp -R /path/to/collabcast/omp-extension/. ~/.omp/collabcast/
 ```
 
 ### One session (verify it works before making it permanent)
 
 ```sh
-omp --hook=$HOME/.omp/walkie/walkie-enroll.js
+omp --hook=$HOME/.omp/collabcast/collabcast-enroll.js
 ```
 
 `--hook` is an alias for `--extension`: OMP resolves the absolute path and imports it. The
@@ -47,14 +47,14 @@ User scope, `~/.omp/agent/config.yml`:
 
 ```yaml
 extensions:
-  - ~/.omp/walkie/walkie-enroll.js
+  - ~/.omp/collabcast/collabcast-enroll.js
 ```
 
 Or project scope, `<project>/.omp/settings.json`:
 
 ```json
 {
-  "extensions": ["/Users/you/.omp/walkie/walkie-enroll.js"]
+  "extensions": ["/Users/you/.omp/collabcast/collabcast-enroll.js"]
 }
 ```
 
@@ -63,25 +63,25 @@ Both lists take explicit paths and behave identically to `--hook`.
 ### Ambient discovery (`.omp/hooks/pre/`)
 
 OMP's hook-capability scan only treats a **`.ts` or `.js`** entry as an importable hook
-factory, which is why the entry file ships as `walkie-enroll.js` rather than `.mjs`: copying
+factory, which is why the entry file ships as `collabcast-enroll.js` rather than `.mjs`: copying
 the directory into a scanned location is enough, with no rename and no explicit path.
 
 ```sh
-mkdir -p ~/.omp/agent/hooks/pre/walkie
-cp -R /path/to/claude-walkie-talkie/omp-extension/. ~/.omp/agent/hooks/pre/walkie/
+mkdir -p ~/.omp/agent/hooks/pre/collabcast
+cp -R /path/to/collabcast/omp-extension/. ~/.omp/agent/hooks/pre/collabcast/
 ```
 
 ## Environment
 
 The hook reads only these variables, and only from its own process environment.
 
-| Variable                   | Required | Default         | Meaning                                                                                 |
-| -------------------------- | -------- | --------------- | --------------------------------------------------------------------------------------- |
-| `WALKIE_AUTHORITY_SOCKET`  | yes      | —               | Unix socket path the Walkie authority listens on.                                        |
-| `WALKIE_HOOK_SECRET`       | yes      | —               | Shared secret proving the request came from an installed hook, not from a random client. |
-| `WALKIE_MCP_SERVERS`       | no       | `walkie-talkie` | Comma/space-separated allowlist of MCP server names whose `walkie_enroll` is accepted.   |
-| `WALKIE_HOOK_TIMEOUT_MS`   | no       | `5000`          | Budget for the whole authority round trip.                                               |
-| `WALKIE_HOOK_LOG`          | no       | unset           | Path to a JSONL audit log. Nothing is written for tool calls the gate does not touch.    |
+| Variable                       | Required | Default      | Meaning                                                                                  |
+| ------------------------------ | -------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `COLLABCAST_AUTHORITY_SOCKET`  | yes      | —            | Unix socket path the Collabcast authority listens on.                                    |
+| `COLLABCAST_HOOK_SECRET`       | yes      | —            | Shared secret proving the request came from an installed hook, not from a random client. |
+| `COLLABCAST_MCP_SERVERS`       | no       | `collabcast` | Comma/space-separated allowlist of MCP server names whose `collabcast_enroll` is accepted. |
+| `COLLABCAST_HOOK_TIMEOUT_MS`   | no       | `5000`       | Budget for the whole authority round trip.                                               |
+| `COLLABCAST_HOOK_LOG`          | no       | unset        | Path to a JSONL audit log. Nothing is written for tool calls the gate does not touch.    |
 
 If either required variable is missing, an approved request is **blocked** with
 `config_invalid` — approval never falls back to enrolling without the authority.
@@ -89,11 +89,11 @@ If either required variable is missing, an approved request is **blocked** with
 ## What you see
 
 ```
-Walkie enrollment
+Collabcast enrollment
 
-An agent is asking to enroll on the walkie channel.
+An agent is asking to enroll on the collabcast channel.
 
-Namespace: walkie-talkie
+Namespace: collabcast
 Role:      listener
 Scopes:    channel:read, channel:publish
 TTL:       900s
@@ -112,16 +112,16 @@ dialog approves. A `select` with `Deny` first turns the same accident into a den
 
 Every one of these blocks the tool call, and none of them injects a code:
 
-| Situation                                                      | Result                     |
-| -------------------------------------------------------------- | -------------------------- |
-| Non-interactive session (`omp -p`, subagent, CI)               | `forbidden`                |
-| `walkie_enroll` offered by a server not in the allowlist        | `forbidden`                |
-| Request omits namespace, role, or scopes                        | `invalid_request`          |
-| `Deny`, a dismissed dialog, or an unrecognised selection        | `forbidden`                |
-| The confirmation dialog itself throws                           | `forbidden`                |
-| Authority socket or hook secret not configured                  | `config_invalid`           |
-| Socket unreachable, timed out, hung up, or replied with garbage | `internal`                 |
-| Authority returns an error envelope                             | `internal` (its code logged) |
+| Situation                                                          | Result                       |
+| ------------------------------------------------------------------ | ---------------------------- |
+| Non-interactive session (`omp -p`, subagent, CI)                   | `forbidden`                  |
+| `collabcast_enroll` offered by a server not in the allowlist        | `forbidden`                  |
+| Request omits namespace, role, or scopes                            | `invalid_request`            |
+| `Deny`, a dismissed dialog, or an unrecognised selection            | `forbidden`                  |
+| The confirmation dialog itself throws                               | `forbidden`                  |
+| Authority socket or hook secret not configured                      | `config_invalid`             |
+| Socket unreachable, timed out, hung up, or replied with garbage     | `internal`                   |
+| Authority returns an error envelope                                 | `internal` (its code logged) |
 
 A background agent that needs channel access does **not** get it here: the root principal
 delegates a capability to it. Self-enrollment is an interactive, human-present act.
@@ -129,15 +129,15 @@ delegates a capability to it. Self-enrollment is an interactive, human-present a
 Two matching notes on the tool name, because both are easy to get wrong:
 
 - OMP namespaces MCP-provided tools as `mcp__<serverName>_<toolName>`. A gate matching a
-  bare `walkie_enroll` never fires for the MCP path — it fails **open**. Matching here is
+  bare `collabcast_enroll` never fires for the MCP path — it fails **open**. Matching here is
   generated from the allowlist, never parsed out of the name.
-- A name that merely *contains* `walkie_enroll` mid-string (`walkie_enroll_status`) is a
-  different tool and passes through untouched. A name that *ends* in `walkie_enroll` from
+- A name that merely *contains* `collabcast_enroll` mid-string (`collabcast_enroll_status`) is a
+  different tool and passes through untouched. A name that *ends* in `collabcast_enroll` from
   an unrecognised source is blocked, not passed.
 
 ## Logging
 
-With `WALKIE_HOOK_LOG` set, each gated decision appends one JSON object: timestamp, stage,
+With `COLLABCAST_HOOK_LOG` set, each gated decision appends one JSON object: timestamp, stage,
 tool name, namespace, role, scopes, TTL, selection, outcome, and an error code on failure.
 
 Every entry goes through `redact.js`, which drops secret-named keys (`code`, `hookSecret`,
@@ -152,7 +152,7 @@ those strings are fixed constants.
 This hook is **operator-installed policy**. Its strength comes from where it sits — in your
 OMP process, under your control, ahead of tool execution — not from cryptography.
 
-`WALKIE_HOOK_SECRET` lives in the environment of a process running as your user. Any other
+`COLLABCAST_HOOK_SECRET` lives in the environment of a process running as your user. Any other
 process running as the **same uid** can read it (`ps eww`, `/proc/<pid>/environ` on Linux,
 a debugger, or simply a shell you gave an agent) and can then talk to the authority socket
 directly, bypassing this dialog. The socket is likewise reachable by anything with

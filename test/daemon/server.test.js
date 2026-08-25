@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { Router } from 'express';
 import request from 'supertest';
 import { DEFAULT_CONFIG } from '../../src/config/schema.js';
-import { ERROR_CODES, WalkieError } from '../../src/identity/errors.js';
+import { ERROR_CODES, CollabcastError } from '../../src/identity/errors.js';
 import { SCHEMA_VERSION, openStore } from '../../src/store/db.js';
 import { createPrincipal } from '../../src/store/principals.js';
 import { issueCapability } from '../../src/store/capabilities.js';
@@ -19,7 +19,7 @@ import { createEvents } from '../../src/daemon/events.js';
 import { STATUS_BY_CODE, createServer, renderError, statusForCode } from '../../src/daemon/server.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
-const NAMESPACE = 'walkie-talkie';
+const NAMESPACE = 'collabcast';
 
 let base;
 let store;
@@ -48,7 +48,7 @@ function bearer() {
 function tracer(trail) {
   const router = Router();
   router.get('/trace', (req, res) => {
-    trail.push(req.walkie ? 'authenticated' : 'unauthenticated');
+    trail.push(req.collabcast ? 'authenticated' : 'unauthenticated');
     res.json({ trail });
   });
   return router;
@@ -56,7 +56,7 @@ function tracer(trail) {
 
 beforeEach(() => {
   base = createFixtureDir('wk-srv-');
-  store = openStore({ path: join(base, 'store', 'walkie.db'), namespace: NAMESPACE });
+  store = openStore({ path: join(base, 'store', 'collabcast.db'), namespace: NAMESPACE });
 });
 
 afterEach(() => {
@@ -70,7 +70,7 @@ describe('composition', () => {
     const authedTrail = [];
     const publicRouter = Router();
     publicRouter.get('/public', (req, res) => {
-      publicTrail.push(req.walkie === undefined ? 'no-identity' : 'identity');
+      publicTrail.push(req.collabcast === undefined ? 'no-identity' : 'identity');
       res.json({ ok: true });
     });
 
@@ -221,10 +221,10 @@ describe('terminal error handler', () => {
     expect(Object.keys(STATUS_BY_CODE).sort()).toEqual([...ERROR_CODES].sort());
   });
 
-  it('renders a WalkieError thrown from a route with its own code and detail', async () => {
+  it('renders a CollabcastError thrown from a route with its own code and detail', async () => {
     const router = Router();
     router.get('/boom', () => {
-      throw new WalkieError('conflict', 'already exists', { id: 'abc' });
+      throw new CollabcastError('conflict', 'already exists', { id: 'abc' });
     });
     const { app } = createServer({
       store,
@@ -245,10 +245,10 @@ describe('terminal error handler', () => {
   it('distinguishes a shed write from a state conflict, and says when to retry', async () => {
     const router = Router();
     router.get('/busy', () => {
-      throw new WalkieError('busy', 'another process is writing the channel');
+      throw new CollabcastError('busy', 'another process is writing the channel');
     });
     router.get('/conflict', () => {
-      throw new WalkieError('conflict', 'already exists');
+      throw new CollabcastError('conflict', 'already exists');
     });
     const { app } = createServer({
       store,
@@ -278,8 +278,8 @@ describe('terminal error handler', () => {
   it('shares 503 between unavailable and busy without merging their codes', async () => {
     expect(statusForCode('busy')).toBe(503);
     expect(statusForCode('unavailable')).toBe(503);
-    expect(renderError(new WalkieError('busy', 'shed')).body.error.code).toBe('busy');
-    expect(renderError(new WalkieError('unavailable', 'gone')).body.error.code).toBe(
+    expect(renderError(new CollabcastError('busy', 'shed')).body.error.code).toBe('busy');
+    expect(renderError(new CollabcastError('unavailable', 'gone')).body.error.code).toBe(
       'unavailable'
     );
   });
@@ -287,7 +287,7 @@ describe('terminal error handler', () => {
   it('renders a rejected async handler, not just a synchronous throw', async () => {
     const router = Router();
     router.get('/boom', (_req, _res, next) => {
-      Promise.reject(new WalkieError('not_found', 'gone')).catch(next);
+      Promise.reject(new CollabcastError('not_found', 'gone')).catch(next);
     });
     const { app } = createServer({
       store,
@@ -304,7 +304,7 @@ describe('terminal error handler', () => {
     const router = Router();
     router.get('/stream', (_req, res, next) => {
       res.write('partial');
-      next(new WalkieError('internal', 'too late'));
+      next(new CollabcastError('internal', 'too late'));
     });
     const { app } = createServer({
       store,
@@ -361,7 +361,7 @@ async function readRawResponse(app, path, authorization) {
 //
 // `daemon-entry` already refuses to finish booting without an authority, on the stated grounds
 // that a service with an HTTP listener and no enrollment socket would answer `/health`, look
-// healthy to `walkie status`, and be permanently incapable of issuing a first capability. That
+// healthy to `collabcast status`, and be permanently incapable of issuing a first capability. That
 // rule held for the first instant of the process only: an authority whose listener went down
 // afterwards left exactly the state the boot ordering exists to prevent, and `/health` kept
 // saying `ok`.

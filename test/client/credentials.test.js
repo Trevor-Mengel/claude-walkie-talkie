@@ -4,13 +4,15 @@
 import { describe, test, expect } from 'vitest';
 import { chmodSync } from 'node:fs';
 import {
-  OPERATOR_CREDENTIAL_FILENAME,
   credentialDrift,
   credentialFromEnv,
-  operatorCredentialPath,
   parseCredential,
   readOperatorCredential
 } from '../../src/client/credentials.js';
+import {
+  OPERATOR_CREDENTIAL_FILENAME,
+  operatorCredentialPath
+} from '../../src/authority/paths.js';
 import { createRegisteredNamespace } from '../helpers/registered-namespace.js';
 
 const TOKEN = 'PsQ2xLmA9vTbNc4WkYz7RgHjDf1EoUiXaSlBn0MpQwE';
@@ -65,13 +67,13 @@ describe('parseCredential', () => {
 });
 
 describe('credentialFromEnv', () => {
-  test('absent or blank WALKIE_CAPABILITY yields no credential rather than an error', () => {
+  test('absent or blank COLLABCAST_CAPABILITY yields no credential rather than an error', () => {
     expect(credentialFromEnv({})).toBeNull();
-    expect(credentialFromEnv({ WALKIE_CAPABILITY: '  ' })).toBeNull();
+    expect(credentialFromEnv({ COLLABCAST_CAPABILITY: '  ' })).toBeNull();
   });
 
   test('a bare token in the environment is adopted', () => {
-    expect(credentialFromEnv({ WALKIE_CAPABILITY: TOKEN })).toEqual({
+    expect(credentialFromEnv({ COLLABCAST_CAPABILITY: TOKEN })).toEqual({
       token: TOKEN,
       claimed: null
     });
@@ -121,7 +123,7 @@ describe('readOperatorCredential', () => {
   });
 
   test('the path is derived, not guessed', () => {
-    expect(operatorCredentialPath('/run/walkie')).toBe(`/run/walkie/${OPERATOR_CREDENTIAL_FILENAME}`);
+    expect(operatorCredentialPath('/run/collabcast')).toBe(`/run/collabcast/${OPERATOR_CREDENTIAL_FILENAME}`);
   });
 });
 

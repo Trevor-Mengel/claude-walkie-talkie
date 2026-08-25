@@ -1,6 +1,6 @@
 import { realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
-import { WalkieError, describeValue } from './errors.js';
+import { CollabcastError, describeValue } from './errors.js';
 
 /**
  * Resolves a path to its physical form, symlinks included, without requiring it to exist.
@@ -55,13 +55,13 @@ export function containsOrEquals(outer, inner) {
 export function requireAbsolutePath(value, label, opts = {}) {
   const { code = 'config_invalid' } = opts;
   if (typeof value !== 'string' || value.length === 0) {
-    throw new WalkieError(
+    throw new CollabcastError(
       code,
       `${label} must be a non-empty string (got ${describeValue(value)})`
     );
   }
   if (!isAbsolute(value)) {
-    throw new WalkieError(code, `${label} must be an absolute path (got ${describeValue(value)})`);
+    throw new CollabcastError(code, `${label} must be an absolute path (got ${describeValue(value)})`);
   }
   return canonicalizePath(value);
 }

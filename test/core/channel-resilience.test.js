@@ -21,7 +21,7 @@ describe('a poisoned id floor is a named failure, not a dead channel', () => {
   // block parser, so a reader's cursor sitting on a corrupted marker is still cleared.
   // That width is correct and unchanged; what it means is that ONE marker holding the
   // maximum base32 value poisons the floor for every future post. Before the fix the
-  // resulting throw was not in the wire vocabulary, so `toWalkie` passed it through and
+  // resulting throw was not in the wire vocabulary, so `toCollabcast` passed it through and
   // the channel answered `500 internal` for every principal, permanently, with no
   // diagnostic naming the marker. Reachable by hand-edit, by a bad merge, or (before the
   // provenance escape) by an attacker-chosen `id=` smuggled through a git identity.

@@ -2,7 +2,7 @@
 // that decide whether the v0.3 authority model actually holds.
 //
 // v0.2's version of this file walked `join -> talk -> mention -> reply -> edit -> archive ->
-// invite -> fulfill` between two MCP children that differed only by the `WALKIE_TOOL` string they
+// invite -> fulfill` between two MCP children that differed only by the `COLLABCAST_TOOL` string they
 // declared at `POST /sessions/join`. Every step of that is now either impossible or means
 // something else:
 //
@@ -21,7 +21,7 @@
 //      into a capability.
 //   2. delegation really narrows: the root mints a goal_hub over `POST /delegate`.
 //   3. authorship is not transferable: the goal_hub cannot edit the root's message (403 not_owner).
-//   4. acknowledgement is per-principal: one client's `walkie_ack` leaves the other's queue alone.
+//   4. acknowledgement is per-principal: one client's `collabcast_ack` leaves the other's queue alone.
 //   5. revocation is immediate and cascading: the root revoking itself kills the capability it
 //      delegated, mid-session, with no restart.
 //   6. a capability is bound to its namespace: stack A's token is refused by stack B.
@@ -69,7 +69,7 @@ describe('E2E: two principals on one channel', () => {
   test('enroll -> delegate -> converse -> ownership -> per-principal ack -> revoke -> namespace', async () => {
     // No pre-minted principals: this test owns the whole issuance path.
     const stack = await createStack({
-      namespace: 'walkie-e2e',
+      namespace: 'collabcast-e2e',
       operator: 'Trevor',
       roles: []
     });
@@ -184,7 +184,7 @@ describe('E2E: two principals on one channel', () => {
       expect(seen.messages.map((m) => m.fromSessionId)).toEqual([hubId, rootId]);
 
       // ── 5. Authorship is not transferable ──────────────────────────────────────────────
-      const hijack = await hubClient.callRaw('walkie_edit', {
+      const hijack = await hubClient.callRaw('collabcast_edit', {
         id: question.id,
         body: 'rewritten by the hub'
       });
@@ -231,7 +231,7 @@ describe('E2E: two principals on one channel', () => {
         ['root', rootClient],
         ['hub', hubClient]
       ]) {
-        const dead = await client.callRaw('walkie_read', {});
+        const dead = await client.callRaw('collabcast_read', {});
         expect(dead.isError, label).toBe(true);
         expect(dead.payload.code, label).toBe('unauthenticated');
       }
@@ -243,10 +243,10 @@ describe('E2E: two principals on one channel', () => {
       ).toBe(401);
 
       // And a revoked session cannot post its way back in.
-      const posthumous = await hubClient.callRaw('walkie_talk', { body: 'still here?' });
+      const posthumous = await hubClient.callRaw('collabcast_talk', { body: 'still here?' });
       expect(posthumous.isError).toBe(true);
       expect(posthumous.payload.code).toBe('unauthenticated');
-      expect(posthumous.payload.message).toMatch(/no longer accepted|walkie_enroll/);
+      expect(posthumous.payload.message).toMatch(/no longer accepted|collabcast_enroll/);
     } finally {
       await hubClient.close();
       await rootClient.close();
@@ -254,8 +254,8 @@ describe('E2E: two principals on one channel', () => {
   }, 40000);
 
   test('a capability is bound to its namespace: stack A\'s token is refused by stack B', async () => {
-    const alpha = await createStack({ namespace: 'walkie-e2e-a', roles: ['root'] });
-    const beta = await createStack({ namespace: 'walkie-e2e-b', roles: ['root'] });
+    const alpha = await createStack({ namespace: 'collabcast-e2e-a', roles: ['root'] });
+    const beta = await createStack({ namespace: 'collabcast-e2e-b', roles: ['root'] });
 
     // Each token works against its own service.
     expect((await alpha.request('GET', '/self', { token: alpha.tokens.root })).status).toBe(200);
@@ -278,7 +278,7 @@ describe('E2E: two principals on one channel', () => {
     const garbage = await beta.request('GET', '/self', { token: 'not-a-token-at-all' });
     expect(crossed.body).toEqual(garbage.body);
     // Nothing in the refusal hints that the token is valid somewhere else.
-    expect(crossed.text).not.toContain('walkie-e2e-a');
+    expect(crossed.text).not.toContain('collabcast-e2e-a');
     expect(crossed.text).not.toContain(alpha.tokens.root);
     expect(crossed.text).not.toContain(alpha.principals.root.principalId);
 
@@ -303,7 +303,7 @@ describe('E2E: two principals on one channel', () => {
       capability: alpha.tokens.root
     });
     try {
-      const refused = await client.callRaw('walkie_read', {});
+      const refused = await client.callRaw('collabcast_read', {});
       expect(refused.isError).toBe(true);
       expect(refused.payload.code).toBe('unauthenticated');
     } finally {

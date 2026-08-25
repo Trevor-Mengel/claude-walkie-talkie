@@ -180,7 +180,7 @@ describe('socketAddressState: only proven death authorises an unlink', () => {
 describe('reclaimSocketPath refuses what it cannot prove dead', () => {
   test('a live listener whose connect is refused keeps its address and its clients', async () => {
     const root = dir();
-    const path = join(root, 'walkie.sock');
+    const path = join(root, 'collabcast.sock');
     const server = await liveListener(path);
 
     await expect(reclaimSocketPath(path, { probe: async () => 'refused' })).rejects.toMatchObject({
@@ -206,7 +206,7 @@ describe('reclaimSocketPath refuses what it cannot prove dead', () => {
   });
 
   test('an unclaimed socket is refused rather than silently taken', async () => {
-    const path = join(dir(), 'walkie.sock');
+    const path = join(dir(), 'collabcast.sock');
     await leaveCrashedSocket(path, { claim: false });
 
     await expect(reclaimSocketPath(path)).rejects.toMatchObject({
@@ -217,7 +217,7 @@ describe('reclaimSocketPath refuses what it cannot prove dead', () => {
   });
 
   test('a SIGKILLed predecessor is still reclaimed, claim and all', async () => {
-    const path = join(dir(), 'walkie.sock');
+    const path = join(dir(), 'collabcast.sock');
     await leaveCrashedSocket(path);
 
     expect(await reclaimSocketPath(path)).toBe(true);

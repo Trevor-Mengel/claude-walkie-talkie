@@ -1,6 +1,6 @@
-// `walkie_ack` must report what actually applied.
+// `collabcast_ack` must report what actually applied.
 //
-// Wave F finding. `walkie_ack` performs two cursor writes — `markRead` then `ack` — and used to
+// Wave F finding. `collabcast_ack` performs two cursor writes — `markRead` then `ack` — and used to
 // do it like this:
 //
 //     if (markRead) result.lastReadId = (await api.markRead(id)).id;
@@ -21,7 +21,7 @@
 import { describe, test, expect } from 'vitest';
 import { buildTools } from '../../src/mcp-server/tools.js';
 import { createCapabilityHolder } from '../../src/mcp-server/capability.js';
-import { walkieError } from '../../src/identity/errors.js';
+import { collabcastError } from '../../src/identity/errors.js';
 
 const TOKEN = 'AkP7xLmA9vTbNc4WkYz7RgHjDf1EoUiXaSlBn0MpQwE';
 const ACK_ID = '01J000000000000000000000AA';
@@ -57,12 +57,12 @@ async function toolsFor(api) {
   const holder = createCapabilityHolder({
     api,
     tokenBox: { value: null },
-    namespace: 'walkie-test',
+    namespace: 'collabcast-test',
     env: {},
     warn: () => {}
   });
   await holder.adopt(TOKEN);
-  return buildTools({ api, capability: holder, namespace: 'walkie-test' });
+  return buildTools({ api, capability: holder, namespace: 'collabcast-test' });
 }
 
 function payloadOf(result) {
@@ -70,10 +70,10 @@ function payloadOf(result) {
 }
 
 function callAck(tools, args) {
-  return tools.call({ params: { name: 'walkie_ack', arguments: args } });
+  return tools.call({ params: { name: 'collabcast_ack', arguments: args } });
 }
 
-describe('walkie_ack partial success', () => {
+describe('collabcast_ack partial success', () => {
   test('the ack commits before the read cursor moves', async () => {
     const api = stubApi();
     const result = await callAck(await toolsFor(api), { id: ACK_ID });
@@ -88,7 +88,7 @@ describe('walkie_ack partial success', () => {
 
   test('a failed read-cursor move is a partial success, not a total failure', async () => {
     const api = stubApi({
-      markRead: () => Promise.reject(walkieError('conflict', 'the read cursor only moves forward'))
+      markRead: () => Promise.reject(collabcastError('conflict', 'the read cursor only moves forward'))
     });
     const result = await callAck(await toolsFor(api), { id: ACK_ID });
 
@@ -112,8 +112,8 @@ describe('walkie_ack partial success', () => {
   test('an unexpected throw from markRead is still a partial success, and leaks nothing', async () => {
     const api = stubApi({
       // A driver-level throw. Its message can carry a socket path or a bound parameter, which
-      // this surface never surfaces — the same rule as `errorResult`'s non-walkie branch.
-      markRead: () => Promise.reject(new TypeError('connect ECONNREFUSED /tmp/walkie-secret.sock'))
+      // this surface never surfaces — the same rule as `errorResult`'s non-collabcast branch.
+      markRead: () => Promise.reject(new TypeError('connect ECONNREFUSED /tmp/collabcast-secret.sock'))
     });
     const result = await callAck(await toolsFor(api), { id: ACK_ID });
 
@@ -122,13 +122,13 @@ describe('walkie_ack partial success', () => {
     expect(payload.lastAckedId).toBe(ACK_ID);
     expect(payload.markRead.applied).toBe(false);
     expect(payload.markRead.code).toBe('internal');
-    expect(result.content[0].text).not.toContain('/tmp/walkie-secret.sock');
+    expect(result.content[0].text).not.toContain('/tmp/collabcast-secret.sock');
     expect(result.content[0].text).not.toContain('ECONNREFUSED');
   });
 
   test('a failed ack applies nothing, so it is a plain error and the read cursor is untouched', async () => {
     const api = stubApi({
-      ack: () => Promise.reject(walkieError('forbidden', 'this capability may not acknowledge'))
+      ack: () => Promise.reject(collabcastError('forbidden', 'this capability may not acknowledge'))
     });
     const result = await callAck(await toolsFor(api), { id: ACK_ID });
 
@@ -142,7 +142,7 @@ describe('walkie_ack partial success', () => {
 
   test('mark_read:false has one call and cannot be partial', async () => {
     const api = stubApi({
-      markRead: () => Promise.reject(walkieError('conflict', 'should never be called'))
+      markRead: () => Promise.reject(collabcastError('conflict', 'should never be called'))
     });
     const result = await callAck(await toolsFor(api), { id: ACK_ID, mark_read: false });
 

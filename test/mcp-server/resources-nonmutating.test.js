@@ -1,6 +1,6 @@
 // Resource reads are passive.
 //
-// `walkie://channel/inbox` used to consume the read cursor. An MCP client may read a resource on
+// `collabcast://channel/inbox` used to consume the read cursor. An MCP client may read a resource on
 // its own initiative — on refresh, on reconnect, on a subscription notification — so a
 // consuming read made messages disappear with nobody deciding to acknowledge them.
 
@@ -59,7 +59,7 @@ async function harness({ enrolled = true } = {}) {
   const capability = createCapabilityHolder({
     api,
     tokenBox: { value: null },
-    namespace: 'walkie-test',
+    namespace: 'collabcast-test',
     env: {},
     warn: () => {}
   });
@@ -74,13 +74,13 @@ async function harness({ enrolled = true } = {}) {
   return { resources, calls, notifications, capability };
 }
 
-describe('walkie:// resources', () => {
+describe('collabcast:// resources', () => {
   test('the three resource URIs are stable', async () => {
     const { resources } = await harness();
     expect(resources.list().map((r) => r.uri).sort()).toEqual([
-      'walkie://channel/inbox',
-      'walkie://channel/recent',
-      'walkie://sessions/active'
+      'collabcast://channel/inbox',
+      'collabcast://channel/recent',
+      'collabcast://sessions/active'
     ]);
   });
 
@@ -88,7 +88,7 @@ describe('walkie:// resources', () => {
     const { resources, calls } = await harness();
 
     for (let i = 0; i < 3; i += 1) {
-      const result = await resources.read({ params: { uri: 'walkie://channel/inbox' } });
+      const result = await resources.read({ params: { uri: 'collabcast://channel/inbox' } });
       const payload = JSON.parse(result.contents[0].text);
       // Identical every time: nothing was consumed.
       expect(payload.messages).toHaveLength(1);
@@ -102,21 +102,21 @@ describe('walkie:// resources', () => {
 
   test('the roster resource reads the principal list', async () => {
     const { resources, calls } = await harness();
-    const result = await resources.read({ params: { uri: 'walkie://sessions/active' } });
+    const result = await resources.read({ params: { uri: 'collabcast://sessions/active' } });
     expect(JSON.parse(result.contents[0].text).principals[0].displayAlias).toBe('builder');
     expect(calls).toContain('principals');
   });
 
   test('the recent resource asks for a bounded, unarchived window', async () => {
     const { resources, calls } = await harness();
-    await resources.read({ params: { uri: 'walkie://channel/recent' } });
+    await resources.read({ params: { uri: 'collabcast://channel/recent' } });
     expect(calls).toContain('latest:20:false');
   });
 
   test('an unenrolled session cannot read a resource, and says why', async () => {
     const { resources, calls } = await harness({ enrolled: false });
     await expect(
-      resources.read({ params: { uri: 'walkie://channel/inbox' } })
+      resources.read({ params: { uri: 'collabcast://channel/inbox' } })
     ).rejects.toMatchObject({ code: 'unauthenticated' });
     expect(calls).toEqual([]);
   });
@@ -124,8 +124,8 @@ describe('walkie:// resources', () => {
   test('an unknown resource is not_found rather than a bare Error', async () => {
     const { resources } = await harness();
     await expect(
-      resources.read({ params: { uri: 'walkie://nope' } })
-    ).rejects.toMatchObject({ code: 'not_found', name: 'WalkieError' });
+      resources.read({ params: { uri: 'collabcast://nope' } })
+    ).rejects.toMatchObject({ code: 'not_found', name: 'CollabcastError' });
   });
 
   test('a subscription notifies on other principals posts and stays quiet about our own', async () => {
@@ -133,7 +133,7 @@ describe('walkie:// resources', () => {
     const capability = createCapabilityHolder({
       api,
       tokenBox: { value: null },
-      namespace: 'walkie-test',
+      namespace: 'collabcast-test',
       env: {},
       warn: () => {}
     });
@@ -150,14 +150,14 @@ describe('walkie:// resources', () => {
       }
     });
 
-    await resources.subscribe({ params: { uri: 'walkie://channel/inbox' } });
+    await resources.subscribe({ params: { uri: 'collabcast://channel/inbox' } });
     emit('message.posted', { id: '01H', from: 'prn_01' });
     expect(notifications).toEqual([]);
     emit('message.posted', { id: '01I', from: 'prn_other' });
     expect(notifications).toEqual([
       {
         method: 'notifications/resources/updated',
-        params: { uri: 'walkie://channel/inbox' }
+        params: { uri: 'collabcast://channel/inbox' }
       }
     ]);
   });
@@ -169,7 +169,7 @@ describe('alias refresh', () => {
     const capability = createCapabilityHolder({
       api,
       tokenBox: { value: null },
-      namespace: 'walkie-test',
+      namespace: 'collabcast-test',
       env: {},
       warn: () => {}
     });

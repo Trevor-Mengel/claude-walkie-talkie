@@ -108,7 +108,7 @@ describe('security: content injection into channel.md (C2)', () => {
     expect(readFileSync(fx.channelPath, 'utf8')).not.toContain('ATTACKER');
   });
 
-  test('rejects any walkie control comment, not just walkie:msg', async () => {
+  test('rejects any collabcast control comment, not just walkie:msg', async () => {
     // The body fence is itself a control comment: a body that could write
     // `walkie:body-end` would close its own fence and everything after it would
     // parse as block content.

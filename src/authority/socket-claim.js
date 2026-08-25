@@ -39,7 +39,7 @@
 import { lstatSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { connect } from 'node:net';
 
-/** A claim sits beside the socket it describes: `walkie.sock` -> `walkie.sock.owner`. */
+/** A claim sits beside the socket it describes: `collabcast.sock` -> `collabcast.sock.owner`. */
 export const OWNER_SUFFIX = '.owner';
 
 /** The claim names a pid, which is as sensitive as the socket it guards. */

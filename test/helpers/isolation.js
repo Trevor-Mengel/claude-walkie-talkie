@@ -2,7 +2,7 @@
 //
 // v0.2's suite spawned daemons with a plain inherited environment: every
 // real-daemon test wrote (and pruned) the operator's real
-// ~/.walkie-talkie/registry.json and fired real desktop notifications. This
+// ~/.collabcast/registry.json and fired real desktop notifications. This
 // module makes that class of accident structurally impossible.
 //
 // It is loaded as a Vitest `setupFiles` module, so it runs inside every test
@@ -18,18 +18,18 @@ import { Server } from 'node:net';
 
 /** Env vars that must name a disposable location before any test may run. */
 export const REQUIRED_ROOT_ENV = Object.freeze([
-  'WALKIE_HOME',
-  'WALKIE_CONFIG',
-  'WALKIE_RUNTIME_ROOT',
-  'WALKIE_HISTORY_ROOT',
+  'COLLABCAST_HOME',
+  'COLLABCAST_CONFIG',
+  'COLLABCAST_RUNTIME_ROOT',
+  'COLLABCAST_HISTORY_ROOT',
   // Host identity map (a file path). A2's loader falls back to
-  // $WALKIE_HOME/.walkie-talkie/identities.json then ~/.walkie-talkie/identities.json,
+  // $COLLABCAST_HOME/.collabcast/identities.json then ~/.collabcast/identities.json,
   // so it must be pinned or a test could read the operator's real map.
-  'WALKIE_IDENTITIES'
+  'COLLABCAST_IDENTITIES'
 ]);
 
 /** Set by `global-setup.js` (and by this file's own tests) before importing. */
-const BOOTSTRAP_FLAG = '__WALKIE_ISOLATION_BOOTSTRAP__';
+const BOOTSTRAP_FLAG = '__COLLABCAST_ISOLATION_BOOTSTRAP__';
 
 const NULL_DEVICE = '/dev/null';
 const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -38,10 +38,10 @@ const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const LOOPBACK_HOST = '127.0.0.1';
 
 /** Marks `net.Server.prototype` so a re-import cannot wrap `listen` twice. */
-const LOOPBACK_PATCH_FLAG = Symbol.for('walkie.test.loopbackBinding');
+const LOOPBACK_PATCH_FLAG = Symbol.for('collabcast.test.loopbackBinding');
 
 function isolationError(message) {
-  const err = new Error(`walkie test isolation: ${message}`);
+  const err = new Error(`collabcast test isolation: ${message}`);
   err.code = 'config_invalid';
   return err;
 }
@@ -79,11 +79,20 @@ function isUnder(child, parent) {
 const REAL_HOME = canonical(homedir());
 const TEMP_ROOT = canonical(tmpdir());
 
-/** Locations that hold live user state. Nothing in a test may resolve here. */
+/**
+ * Locations that hold live user state. Nothing in a test may resolve here.
+ *
+ * Both the pre- and post-Collabcast-rename spellings are listed on purpose: the operator's
+ * real v0.2 state directory and repository checkout still exist under their old names, and
+ * the directory rename happens outside this repo, so a guard that only knew the new names
+ * would silently stop protecting live state.
+ */
 export const FORBIDDEN_ROOTS = Object.freeze([
   REAL_HOME,
+  canonical(join(homedir(), '.collabcast')),
   canonical(join(homedir(), '.walkie-talkie')),
   canonical(join(homedir(), '.paseo')),
+  canonical('/Users/trev/Projects/development/collabcast'),
   canonical('/Users/trev/Projects/development/claude-walkie-talkie'),
   canonical(PKG_ROOT)
 ]);
@@ -115,11 +124,11 @@ export function assertDisposable(pathLike, label = 'path') {
 }
 
 /**
- * Create one disposable tree for a test run. Every walkie state location lives
+ * Create one disposable tree for a test run. Every collabcast state location lives
  * under a single `mkdtemp` prefix so `cleanup()` removes all of it.
  */
 export function makeDisposableRoots() {
-  const base = mkdtempSync(join(TEMP_ROOT, 'walkie-iso-'));
+  const base = mkdtempSync(join(TEMP_ROOT, 'collabcast-iso-'));
   const roots = {
     base,
     home: join(base, 'home'),
@@ -127,7 +136,7 @@ export function makeDisposableRoots() {
     data: join(base, 'data'),
     history: join(base, 'history'),
     // File paths, not directories: these name documents, not trees.
-    config: join(base, 'config', 'walkie.json'),
+    config: join(base, 'config', 'collabcast.json'),
     identities: join(base, 'config', 'identities.json'),
     // Kept short on purpose: AF_UNIX paths cap out near 104 bytes on macOS.
     socket: join(base, 'd.sock')
@@ -151,15 +160,15 @@ export function makeDisposableRoots() {
 /** The complete set of isolation variables implied by a disposable tree. */
 export function isolationVars(roots) {
   return {
-    WALKIE_ISOLATION_ROOT: roots.base,
-    WALKIE_HOME: roots.home,
-    WALKIE_CONFIG: roots.config,
-    WALKIE_RUNTIME_ROOT: roots.runtime,
-    WALKIE_HISTORY_ROOT: roots.history,
-    WALKIE_DATA_ROOT: roots.data,
-    WALKIE_IDENTITIES: roots.identities,
-    WALKIE_SOCKET_PATH: roots.socket,
-    WALKIE_NO_NOTIFY: '1',
+    COLLABCAST_ISOLATION_ROOT: roots.base,
+    COLLABCAST_HOME: roots.home,
+    COLLABCAST_CONFIG: roots.config,
+    COLLABCAST_RUNTIME_ROOT: roots.runtime,
+    COLLABCAST_HISTORY_ROOT: roots.history,
+    COLLABCAST_DATA_ROOT: roots.data,
+    COLLABCAST_IDENTITIES: roots.identities,
+    COLLABCAST_SOCKET_PATH: roots.socket,
+    COLLABCAST_NO_NOTIFY: '1',
     GIT_CONFIG_GLOBAL: NULL_DEVICE,
     GIT_CONFIG_SYSTEM: NULL_DEVICE
   };
@@ -185,8 +194,8 @@ export function installIsolation({ env = process.env } = {}) {
     }
     resolved[key] = assertDisposable(value, key);
   }
-  if (!env.WALKIE_NO_NOTIFY) {
-    throw isolationError('WALKIE_NO_NOTIFY is not set; tests would fire real desktop notifications');
+  if (!env.COLLABCAST_NO_NOTIFY) {
+    throw isolationError('COLLABCAST_NO_NOTIFY is not set; tests would fire real desktop notifications');
   }
   for (const key of ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_SYSTEM']) {
     if (env[key] !== NULL_DEVICE) {
@@ -194,11 +203,11 @@ export function installIsolation({ env = process.env } = {}) {
     }
   }
   return Object.freeze({
-    home: resolved.WALKIE_HOME,
-    config: resolved.WALKIE_CONFIG,
-    runtime: resolved.WALKIE_RUNTIME_ROOT,
-    history: resolved.WALKIE_HISTORY_ROOT,
-    identities: resolved.WALKIE_IDENTITIES
+    home: resolved.COLLABCAST_HOME,
+    config: resolved.COLLABCAST_CONFIG,
+    runtime: resolved.COLLABCAST_RUNTIME_ROOT,
+    history: resolved.COLLABCAST_HISTORY_ROOT,
+    identities: resolved.COLLABCAST_IDENTITIES
   });
 }
 
@@ -211,19 +220,19 @@ export function isolatedEnv(extra = {}) {
   const state = installIsolation();
   const env = {
     ...process.env,
-    WALKIE_ISOLATION_ROOT: process.env.WALKIE_ISOLATION_ROOT ?? state.home,
-    WALKIE_HOME: state.home,
-    WALKIE_CONFIG: state.config,
-    WALKIE_RUNTIME_ROOT: state.runtime,
-    WALKIE_HISTORY_ROOT: state.history,
-    WALKIE_IDENTITIES: state.identities,
-    WALKIE_NO_NOTIFY: process.env.WALKIE_NO_NOTIFY || '1',
+    COLLABCAST_ISOLATION_ROOT: process.env.COLLABCAST_ISOLATION_ROOT ?? state.home,
+    COLLABCAST_HOME: state.home,
+    COLLABCAST_CONFIG: state.config,
+    COLLABCAST_RUNTIME_ROOT: state.runtime,
+    COLLABCAST_HISTORY_ROOT: state.history,
+    COLLABCAST_IDENTITIES: state.identities,
+    COLLABCAST_NO_NOTIFY: process.env.COLLABCAST_NO_NOTIFY || '1',
     GIT_CONFIG_GLOBAL: NULL_DEVICE,
     GIT_CONFIG_SYSTEM: NULL_DEVICE,
     HOME: state.home
   };
-  if (process.env.WALKIE_DATA_ROOT) env.WALKIE_DATA_ROOT = process.env.WALKIE_DATA_ROOT;
-  if (process.env.WALKIE_SOCKET_PATH) env.WALKIE_SOCKET_PATH = process.env.WALKIE_SOCKET_PATH;
+  if (process.env.COLLABCAST_DATA_ROOT) env.COLLABCAST_DATA_ROOT = process.env.COLLABCAST_DATA_ROOT;
+  if (process.env.COLLABCAST_SOCKET_PATH) env.COLLABCAST_SOCKET_PATH = process.env.COLLABCAST_SOCKET_PATH;
   for (const [key, value] of Object.entries(extra)) {
     if (value === undefined) {
       delete env[key];
@@ -234,7 +243,7 @@ export function isolatedEnv(extra = {}) {
     env[key] = value;
   }
   // Keep the homedir() fallback pointed at whichever home the child ends up with.
-  if (env.WALKIE_HOME !== state.home) env.HOME = env.WALKIE_HOME;
+  if (env.COLLABCAST_HOME !== state.home) env.HOME = env.COLLABCAST_HOME;
   return env;
 }
 

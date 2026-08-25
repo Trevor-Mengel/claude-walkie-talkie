@@ -1,22 +1,21 @@
 {
-  "name": "claude-walkie-talkie",
-  "version": "0.2.0",
-  "description": "Asynchronous two-way messaging between concurrent Claude Code and Cowork sessions.",
+  "name": "collabcast",
+  "version": "0.3.0",
+  "description": "Asynchronous two-way messaging between concurrent coding-agent sessions and the human operator.",
   "type": "module",
   "license": "MIT",
   "author": "Trevor Mengel <trevor@cloutdesk.com>",
-  "homepage": "https://github.com/Trevor-Mengel/claude-walkie-talkie",
-  "bugs": "https://github.com/Trevor-Mengel/claude-walkie-talkie/issues",
+  "homepage": "https://github.com/Trevor-Mengel/collabcast",
+  "bugs": "https://github.com/Trevor-Mengel/collabcast/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Trevor-Mengel/claude-walkie-talkie.git"
+    "url": "git+https://github.com/Trevor-Mengel/collabcast.git"
   },
   "engines": {
     "node": ">=22"
   },
   "keywords": [
-    "claude-code",
-    "claude-cowork",
+    "collabcast",
     "mcp",
     "mcp-server",
     "messaging",
@@ -26,8 +25,8 @@
     "workflow"
   ],
   "bin": {
-    "walkie": "bin/walkie.js",
-    "walkie-talkie-mcp": "bin/walkie-talkie-mcp.js"
+    "collabcast": "bin/collabcast.js",
+    "collabcast-mcp": "bin/collabcast-mcp.js"
   },
   "files": [
     "bin",
@@ -47,7 +46,7 @@
     "test:watch": "vitest",
     "lint": "eslint --no-error-on-unmatched-pattern src test bin",
     "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\" \"bin/**/*.js\"",
-    "start:mcp": "node ./bin/walkie-talkie-mcp.js"
+    "start:mcp": "node ./bin/collabcast-mcp.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

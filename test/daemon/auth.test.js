@@ -20,7 +20,7 @@ import {
 import { createServer, hostnameFromHeader, renderError } from '../../src/daemon/server.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
-const NAMESPACE = 'walkie-talkie';
+const NAMESPACE = 'collabcast';
 const OTHER_NAMESPACE = 'other-project';
 
 let base;
@@ -35,12 +35,12 @@ function probeRoutes() {
   const router = Router();
   router.get('/probe/identity', (req, res) => {
     res.json({
-      principalId: req.walkie.principal.id,
-      role: req.walkie.principal.role,
-      alias: req.walkie.principal.displayAlias,
-      namespace: req.walkie.namespace,
-      capabilityId: req.walkie.capability.id,
-      scopes: req.walkie.capability.scopes
+      principalId: req.collabcast.principal.id,
+      role: req.collabcast.principal.role,
+      alias: req.collabcast.principal.displayAlias,
+      namespace: req.collabcast.namespace,
+      capabilityId: req.collabcast.capability.id,
+      scopes: req.collabcast.capability.scopes
     });
   });
   router.get('/probe/read', requireScope('channel:read'), (_req, res) => res.json({ ok: true }));
@@ -104,7 +104,7 @@ function rejections() {
 
 beforeEach(() => {
   base = createFixtureDir('wk-auth-');
-  store = openStore({ path: join(base, 'store', 'walkie.db'), namespace: NAMESPACE });
+  store = openStore({ path: join(base, 'store', 'collabcast.db'), namespace: NAMESPACE });
 });
 
 afterEach(() => {
@@ -141,7 +141,7 @@ describe('parseBearer', () => {
 });
 
 describe('requireCapability', () => {
-  it('populates req.walkie for a live capability', async () => {
+  it('populates req.collabcast for a live capability', async () => {
     const { principal, token, capabilityId } = mint({
       alias: 'Main',
       scopes: ['channel:read', 'channel:publish']
@@ -275,7 +275,7 @@ describe('requireCapability', () => {
       expect(text).not.toContain(base);
       expect(text).not.toContain(store.path);
       expect(text).not.toMatch(/\/(?:private\/)?(?:var|tmp|Users|home)\//);
-      expect(text).not.toMatch(/walkie\.db/);
+      expect(text).not.toMatch(/collabcast\.db/);
     }
   });
 
@@ -418,7 +418,7 @@ describe('requireScope', () => {
     const gate = requireScope('channel:publish');
     let captured;
     gate(
-      { method: 'POST', walkie: { principal: { id: 'prn_x' }, capability: { id: 'cap_x', scopes: ['channel:read'] } } },
+      { method: 'POST', collabcast: { principal: { id: 'prn_x' }, capability: { id: 'cap_x', scopes: ['channel:read'] } } },
       {},
       (err) => {
         captured = err;
@@ -555,7 +555,7 @@ describe('GET /health', () => {
     expect(Object.keys(res.body).sort()).toEqual(['mode', 'namespace', 'ok', 'schemaVersion']);
     const text = JSON.stringify(res.body);
     expect(text).not.toContain(base);
-    expect(text).not.toMatch(/walkie-talkie\//);
+    expect(text).not.toMatch(/collabcast\//);
   });
 });
 
@@ -567,7 +567,7 @@ describe('public routers', () => {
 });
 
 describe('terminal error handler', () => {
-  it('collapses a non-WalkieError to a fixed internal envelope', async () => {
+  it('collapses a non-CollabcastError to a fixed internal envelope', async () => {
     const { token } = mint();
     const res = await request(makeApp()).get('/probe/boom').set('Authorization', `Bearer ${token}`);
 
@@ -609,7 +609,7 @@ describe('terminal error handler', () => {
 
 describe('renderError', () => {
   it('maps the shared error vocabulary onto HTTP', async () => {
-    const { WalkieError } = await import('../../src/identity/errors.js');
+    const { CollabcastError } = await import('../../src/identity/errors.js');
     const cases = [
       ['unauthenticated', 401],
       ['forbidden', 403],
@@ -627,7 +627,7 @@ describe('renderError', () => {
       ['internal', 500]
     ];
     for (const [code, status] of cases) {
-      const rendered = renderError(new WalkieError(code, 'because'));
+      const rendered = renderError(new CollabcastError(code, 'because'));
       expect(rendered.status, code).toBe(status);
       expect(rendered.body.error.code, code).toBe(code);
     }
@@ -644,7 +644,7 @@ describe('renderError', () => {
 
   it('drops the message of anything outside the vocabulary', () => {
     for (const err of [
-      new Error('boom /Users/someone/.walkie-talkie/store/walkie.db'),
+      new Error('boom /Users/someone/.collabcast/store/collabcast.db'),
       new TypeError('undefined is not a function'),
       'a bare string',
       null,

@@ -17,11 +17,8 @@
  */
 
 import { readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { walkieError } from '../identity/errors.js';
-
-export const OPERATOR_CREDENTIAL_FILENAME = 'operator.cred';
-export const CREDENTIAL_FILE_MODE = 0o600;
+import { collabcastError } from '../identity/errors.js';
+import { OPERATOR_CREDENTIAL_FILENAME, operatorCredentialPath } from '../authority/paths.js';
 
 /** Fields a credential document may claim. Only `token` is ever trusted. */
 const CLAIM_KEYS = Object.freeze([
@@ -33,18 +30,13 @@ const CLAIM_KEYS = Object.freeze([
   'namespace'
 ]);
 
-/** `<runtimeRoot>/operator.cred` */
-export function operatorCredentialPath(runtimeRoot) {
-  return join(runtimeRoot, OPERATOR_CREDENTIAL_FILENAME);
-}
-
 function requireToken(value, label) {
   if (typeof value !== 'string' || value.trim() === '') {
-    throw walkieError('config_invalid', `${label} does not contain a capability token`);
+    throw collabcastError('config_invalid', `${label} does not contain a capability token`);
   }
   const token = value.trim();
   if (/\s/.test(token)) {
-    throw walkieError('config_invalid', `${label} contains whitespace inside the token`);
+    throw collabcastError('config_invalid', `${label} contains whitespace inside the token`);
   }
   return token;
 }
@@ -58,12 +50,12 @@ function requireToken(value, label) {
  */
 export function parseCredential(raw, label = 'the credential') {
   if (typeof raw !== 'string' || raw.trim() === '') {
-    throw walkieError('config_invalid', `${label} is empty`);
+    throw collabcastError('config_invalid', `${label} is empty`);
   }
   const trimmed = raw.trim();
   if (trimmed.startsWith('[')) {
     // A JSON array is neither form; treating it as a token would send `[]` as a bearer.
-    throw walkieError('config_invalid', `${label} must be a bare token or a JSON object`);
+    throw collabcastError('config_invalid', `${label} must be a bare token or a JSON object`);
   }
   if (!trimmed.startsWith('{')) {
     return { token: requireToken(trimmed, label), claimed: null };
@@ -72,14 +64,14 @@ export function parseCredential(raw, label = 'the credential') {
   try {
     parsed = JSON.parse(trimmed);
   } catch {
-    throw walkieError(
+    throw collabcastError(
       'config_invalid',
       `${label} looks like JSON but could not be parsed; supply either a bare token or the ` +
         'object returned by enrollment'
     );
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw walkieError('config_invalid', `${label} must be a bare token or a JSON object`);
+    throw collabcastError('config_invalid', `${label} must be a bare token or a JSON object`);
   }
   const token = requireToken(parsed.token, label);
   const claimed = {};
@@ -90,15 +82,15 @@ export function parseCredential(raw, label = 'the credential') {
 }
 
 /**
- * Read `WALKIE_CAPABILITY`, if the supervisor injected one.
+ * Read `COLLABCAST_CAPABILITY`, if the supervisor injected one.
  *
  * @param {Record<string,string|undefined>} [env]
  * @returns {{token:string, claimed:Record<string,unknown>|null}|null}
  */
 export function credentialFromEnv(env = process.env) {
-  const raw = env.WALKIE_CAPABILITY;
+  const raw = env.COLLABCAST_CAPABILITY;
   if (raw === undefined || raw.trim() === '') return null;
-  return parseCredential(raw, 'WALKIE_CAPABILITY');
+  return parseCredential(raw, 'COLLABCAST_CAPABILITY');
 }
 
 /**
@@ -114,20 +106,20 @@ export function readOperatorCredential(runtimeRoot) {
   try {
     stat = statSync(path);
   } catch {
-    throw walkieError(
+    throw collabcastError(
       'unauthenticated',
-      `no operator credential found in the walkie runtime directory for this namespace ` +
+      `no operator credential found in the collabcast runtime directory for this namespace ` +
         `(expected ${OPERATOR_CREDENTIAL_FILENAME}, mode 0600)`
     );
   }
   if (!stat.isFile()) {
-    throw walkieError(
+    throw collabcastError(
       'config_invalid',
-      `${OPERATOR_CREDENTIAL_FILENAME} in the walkie runtime directory is not a regular file`
+      `${OPERATOR_CREDENTIAL_FILENAME} in the collabcast runtime directory is not a regular file`
     );
   }
   if ((stat.mode & 0o077) !== 0) {
-    throw walkieError(
+    throw collabcastError(
       'config_invalid',
       `${OPERATOR_CREDENTIAL_FILENAME} is readable beyond its owner ` +
         `(mode ${(stat.mode & 0o777).toString(8)}); it holds a root capability and must be 0600`
@@ -137,9 +129,9 @@ export function readOperatorCredential(runtimeRoot) {
   try {
     raw = readFileSync(path, 'utf8');
   } catch {
-    throw walkieError(
+    throw collabcastError(
       'config_invalid',
-      `${OPERATOR_CREDENTIAL_FILENAME} in the walkie runtime directory could not be read`
+      `${OPERATOR_CREDENTIAL_FILENAME} in the collabcast runtime directory could not be read`
     );
   }
   return parseCredential(raw, `the operator credential (${OPERATOR_CREDENTIAL_FILENAME})`);

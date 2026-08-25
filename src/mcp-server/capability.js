@@ -23,7 +23,7 @@
  */
 
 import { credentialDrift, credentialFromEnv } from '../client/credentials.js';
-import { isWalkieError, walkieError } from '../identity/errors.js';
+import { isCollabcastError, collabcastError } from '../identity/errors.js';
 
 /**
  * An enrollment code is `randomBytes(32).toString('base64url')` — exactly 43 base64url
@@ -58,22 +58,22 @@ const REFUSAL_CODES = new Set(['unauthenticated', 'forbidden', 'wrong_namespace'
 
 function defaultWarn(message) {
   // stderr: stdout is the MCP transport.
-  process.stderr.write(`[walkie-talkie-mcp] ${message}\n`);
+  process.stderr.write(`[collabcast-mcp] ${message}\n`);
 }
 
 const UNENROLLED_MESSAGE =
-  'this session holds no walkie capability. Either the supervisor injects one as ' +
-  'WALKIE_CAPABILITY, or call walkie_enroll and have the operator approve the request.';
+  'this session holds no collabcast capability. Either the supervisor injects one as ' +
+  'COLLABCAST_CAPABILITY, or call collabcast_enroll and have the operator approve the request.';
 
 const INVALID_MESSAGE =
-  'this session\'s walkie capability is no longer accepted (expired or revoked). Every ' +
-  'channel operation will fail until a new one is issued: call walkie_enroll to request ' +
+  'this session\'s collabcast capability is no longer accepted (expired or revoked). Every ' +
+  'channel operation will fail until a new one is issued: call collabcast_enroll to request ' +
   'operator approval again.';
 
 const UNVERIFIED_MESSAGE =
-  'this session holds a walkie capability that has not been confirmed yet, because the walkie ' +
+  'this session holds a collabcast capability that has not been confirmed yet, because the collabcast ' +
   'service could not be reached. The capability is intact and still held: do NOT call ' +
-  'walkie_enroll, which would ask the operator to approve a second time for nothing. Make sure ' +
+  'collabcast_enroll, which would ask the operator to approve a second time for nothing. Make sure ' +
   'the service for this namespace is running and retry.';
 
 /** The sentence appended when a credential survives a failure, so the model does not re-enroll. */
@@ -155,7 +155,7 @@ export function createCapabilityHolder({ api, tokenBox, namespace, env = process
    * @returns {never}
    */
   function noteResolveFailure(err) {
-    const code = isWalkieError(err) ? err.code : null;
+    const code = isCollabcastError(err) ? err.code : null;
     if (code && REFUSAL_CODES.has(code)) {
       clear('invalid');
       throw err;
@@ -167,13 +167,13 @@ export function createCapabilityHolder({ api, tokenBox, namespace, env = process
     // The original context (namespace, mode, timeout) is part of what makes the remedy
     // actionable, so it is carried through; our two fields are added last and always win.
     const detail = {
-      ...(isWalkieError(err) && err.detail && typeof err.detail === 'object' ? err.detail : {}),
+      ...(isCollabcastError(err) && err.detail && typeof err.detail === 'object' ? err.detail : {}),
       capabilityState: 'unverified',
       credentialRetained: true
     };
-    throw walkieError(
+    throw collabcastError(
       code ?? 'internal',
-      (code ? err.message : 'the walkie service could not confirm this capability') +
+      (code ? err.message : 'the collabcast service could not confirm this capability') +
         RETAINED_NOTE,
       detail
     );
@@ -211,7 +211,7 @@ export function createCapabilityHolder({ api, tokenBox, namespace, env = process
      */
     async adopt(token, claimed = null) {
       if (typeof token !== 'string' || token.trim() === '') {
-        throw walkieError('internal', 'enrollment returned no capability token');
+        throw collabcastError('internal', 'enrollment returned no capability token');
       }
       tokenBox.value = token.trim();
       pendingClaimed = claimed;
@@ -247,9 +247,9 @@ export function createCapabilityHolder({ api, tokenBox, namespace, env = process
         // Not `unauthenticated`: nothing rejected this credential. `unavailable` is the code
         // that says "the service isn't there, here's the remedy" — and the remedy is a retry,
         // not another operator approval.
-        throw walkieError('unavailable', UNVERIFIED_MESSAGE, { capabilityState: state });
+        throw collabcastError('unavailable', UNVERIFIED_MESSAGE, { capabilityState: state });
       }
-      throw walkieError(
+      throw collabcastError(
         'unauthenticated',
         state === 'invalid' ? INVALID_MESSAGE : UNENROLLED_MESSAGE,
         { capabilityState: state }

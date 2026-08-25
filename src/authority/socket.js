@@ -22,7 +22,7 @@
 
 import net from 'node:net';
 import { chmodSync, existsSync, statSync, unlinkSync } from 'node:fs';
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { audit, redactDetail } from '../store/index.js';
 import { compareSecret, loadSecret } from './secret.js';
 import { DENIED_MESSAGE, OPAQUE_CODES, requireCodeTtlSeconds } from './policy.js';
@@ -70,13 +70,13 @@ function envelope(code, message, detail) {
 }
 
 /**
- * Renders a thrown value as a wire reply. Anything that is not a WalkieError becomes a
+ * Renders a thrown value as a wire reply. Anything that is not a CollabcastError becomes a
  * bare `internal`: driver and filesystem messages carry paths and bound parameters.
  *
  * @param {unknown} err
  */
 export function replyFor(err) {
-  if (err instanceof WalkieError) {
+  if (err instanceof CollabcastError) {
     if (OPAQUE_CODES.includes(err.code)) return envelope('forbidden', DENIED_MESSAGE);
     return err.toEnvelope();
   }
@@ -125,16 +125,16 @@ export async function clearStaleSocket(path, { probe = probeSocketState } = {}) 
   const state = await socketAddressState(path, { probe });
   if (state === 'free') return;
   if (state === 'not-a-socket') {
-    throw new WalkieError(
+    throw new CollabcastError(
       'config_invalid',
       'the authority socket address is occupied by a regular file'
     );
   }
   if (state === 'occupied') {
-    throw new WalkieError('conflict', 'another authority is already listening for this namespace');
+    throw new CollabcastError('conflict', 'another authority is already listening for this namespace');
   }
   if (state === 'unclaimed') {
-    throw new WalkieError(
+    throw new CollabcastError(
       'conflict',
       'the authority socket exists but no owning process can be identified, so it cannot be ' +
         'proven dead; remove it by hand if no authority is using it',
@@ -144,7 +144,7 @@ export async function clearStaleSocket(path, { probe = probeSocketState } = {}) 
   try {
     unlinkSocketAddress(path);
   } catch (err) {
-    throw new WalkieError('config_invalid', 'the stale authority socket could not be removed', {
+    throw new CollabcastError('config_invalid', 'the stale authority socket could not be removed', {
       reason: err?.code ?? 'unknown'
     });
   }
@@ -161,11 +161,11 @@ export async function clearStaleSocket(path, { probe = probeSocketState } = {}) 
  */
 export function readRequestLine(parsed) {
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new WalkieError('invalid_request', 'the request must be a single JSON object');
+    throw new CollabcastError('invalid_request', 'the request must be a single JSON object');
   }
   const request = /** @type {Record<string, unknown>} */ (parsed);
   if (request.op !== ENROLL_OP) {
-    throw new WalkieError('invalid_request', 'unsupported operation', { expected: ENROLL_OP });
+    throw new CollabcastError('invalid_request', 'unsupported operation', { expected: ENROLL_OP });
   }
   return {
     op: ENROLL_OP,
@@ -213,13 +213,13 @@ function makeEmitter(log) {
  */
 export function createEnrollHandler({ store, config, secret, codeTtlSeconds, log }) {
   if (!store || typeof store.tx !== 'function') {
-    throw new WalkieError('internal', 'the authority requires a store');
+    throw new CollabcastError('internal', 'the authority requires a store');
   }
   if (typeof config?.namespace !== 'string' || config.namespace.length === 0) {
-    throw new WalkieError('namespace_unresolved', 'the authority requires a namespace');
+    throw new CollabcastError('namespace_unresolved', 'the authority requires a namespace');
   }
   if (typeof secret !== 'string' || secret.length === 0) {
-    throw new WalkieError('config_invalid', 'the authority has no hook secret to verify against');
+    throw new CollabcastError('config_invalid', 'the authority has no hook secret to verify against');
   }
   const codeTtl = requireCodeTtlSeconds(codeTtlSeconds);
 
@@ -277,14 +277,14 @@ export function createEnrollHandler({ store, config, secret, codeTtlSeconds, log
       // The code crosses the wire here and is never written anywhere else.
       return { code: issued.code };
     } catch (err) {
-      if (err instanceof WalkieError && OPAQUE_CODES.includes(err.code)) {
+      if (err instanceof CollabcastError && OPAQUE_CODES.includes(err.code)) {
         return deny(err.code === 'wrong_namespace' ? 'unknown_namespace' : 'unauthenticated');
       }
-      const code = err instanceof WalkieError ? err.code : 'internal';
+      const code = err instanceof CollabcastError ? err.code : 'internal';
       audit(store, {
         action: 'enroll.reject',
         outcome: 'denied',
-        detail: { reason: code, ...(err instanceof WalkieError ? err.detail || {} : {}) }
+        detail: { reason: code, ...(err instanceof CollabcastError ? err.detail || {} : {}) }
       });
       emit({ event: 'enroll.request', outcome: 'denied', reason: code });
       return replyFor(err);
@@ -300,7 +300,7 @@ export function createEnrollHandler({ store, config, secret, codeTtlSeconds, log
  *
  * @param {import('node:net').Socket} socket
  * @param {number} idleTimeoutMs
- * @param {(line:string|null, err:WalkieError|null) => void} done
+ * @param {(line:string|null, err:CollabcastError|null) => void} done
  */
 function readOneLine(socket, idleTimeoutMs, done) {
   /** @type {Buffer[]} */
@@ -318,7 +318,7 @@ function readOneLine(socket, idleTimeoutMs, done) {
   const onData = (chunk) => {
     size += chunk.length;
     if (size > MAX_REQUEST_BYTES) {
-      settle(null, new WalkieError('invalid_request', 'the request exceeded the size limit', {
+      settle(null, new CollabcastError('invalid_request', 'the request exceeded the size limit', {
         maxBytes: MAX_REQUEST_BYTES
       }));
       return;
@@ -330,7 +330,7 @@ function readOneLine(socket, idleTimeoutMs, done) {
     if (newline !== buffer.length - 1) {
       // One request per connection: trailing bytes mean a second request, or framing
       // confusion. Either way we refuse rather than guess.
-      settle(null, new WalkieError('invalid_request', 'the request must be a single JSON line'));
+      settle(null, new CollabcastError('invalid_request', 'the request must be a single JSON line'));
       return;
     }
     settle(buffer.subarray(0, newline).toString('utf8'), null);
@@ -338,14 +338,14 @@ function readOneLine(socket, idleTimeoutMs, done) {
 
   socket.on('data', onData);
   socket.setTimeout(idleTimeoutMs, () => {
-    settle(null, new WalkieError('invalid_request', 'the request did not arrive in time'));
+    settle(null, new CollabcastError('invalid_request', 'the request did not arrive in time'));
   });
   socket.once('error', () => {
-    settle(null, new WalkieError('invalid_request', 'the connection failed before a request arrived'));
+    settle(null, new CollabcastError('invalid_request', 'the connection failed before a request arrived'));
   });
   socket.once('end', () => {
     if (!settled) {
-      settle(null, new WalkieError('invalid_request', 'the connection closed mid-request'));
+      settle(null, new CollabcastError('invalid_request', 'the connection closed mid-request'));
     }
   });
 }
@@ -375,7 +375,7 @@ export async function startAuthoritySocket({
     if (typeof secret === 'string' && secret.length > 0) return secret;
     const loaded = loadSecret({ runtimeRoot, path: secretPath, env });
     if (!loaded) {
-      throw new WalkieError(
+      throw new CollabcastError(
         'config_invalid',
         'no hook secret is configured; run the enrollment hook installer to create one'
       );
@@ -416,12 +416,12 @@ export async function startAuthoritySocket({
         // answer rather than leave the hook hanging on a dead connection.
         const framed =
           thrown instanceof SyntaxError
-            ? new WalkieError('invalid_request', 'the request was not valid JSON')
+            ? new CollabcastError('invalid_request', 'the request was not valid JSON')
             : thrown;
         emit({
           event: 'enroll.frame',
           outcome: 'rejected',
-          reason: framed instanceof WalkieError ? framed.code : 'internal'
+          reason: framed instanceof CollabcastError ? framed.code : 'internal'
         });
         reply = replyFor(framed);
       }
@@ -440,7 +440,7 @@ export async function startAuthoritySocket({
     const onError = (err) => {
       server.removeListener('error', onError);
       reject(
-        new WalkieError('config_invalid', 'the authority socket could not be bound', {
+        new CollabcastError('config_invalid', 'the authority socket could not be bound', {
           reason: err?.code ?? 'unknown'
         })
       );

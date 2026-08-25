@@ -1,5 +1,5 @@
 /**
- * A throwaway Unix-socket stand-in for the Walkie authority, used by the hook tests so
+ * A throwaway Unix-socket stand-in for the Collabcast authority, used by the hook tests so
  * they never touch a real daemon, a real socket path, or real operator state.
  *
  * Not a `*.test.js` file, so vitest treats it as a plain module.

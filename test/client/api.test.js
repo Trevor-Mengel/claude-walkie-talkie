@@ -63,7 +63,7 @@ function stubService(handler) {
 function clientFor(socketPath, token = 'tok-abc') {
   return createApiClient({
     endpoint: { socketPath },
-    namespace: 'walkie-test',
+    namespace: 'collabcast-test',
     mode: 'managed',
     token: () => token
   });
@@ -120,7 +120,7 @@ describe('client api transport', () => {
   test('health and enroll/exchange are sent unauthenticated', async () => {
     const svc = await stubService((req) =>
       req.url === '/health'
-        ? { json: { ok: true, namespace: 'walkie-test', mode: 'managed', schemaVersion: '3' } }
+        ? { json: { ok: true, namespace: 'collabcast-test', mode: 'managed', schemaVersion: '3' } }
         : { status: 201, json: { token: 't', capabilityId: 'cap_1' } }
     );
     const api = clientFor(svc.socketPath, 'secret-token-value');
@@ -132,7 +132,7 @@ describe('client api transport', () => {
     expect(svc.seen[1].body).toEqual({ enrollmentCode: 'code-value' });
   });
 
-  test('an error envelope becomes a WalkieError with the same code and detail', async () => {
+  test('an error envelope becomes a CollabcastError with the same code and detail', async () => {
     const svc = await stubService(() => ({
       status: 403,
       json: {
@@ -146,7 +146,7 @@ describe('client api transport', () => {
     const api = clientFor(svc.socketPath);
 
     await expect(api.post({ body: 'x' })).rejects.toMatchObject({
-      name: 'WalkieError',
+      name: 'CollabcastError',
       code: 'scope_required',
       message: 'needs channel:publish',
       detail: { scope: 'channel:publish' },
@@ -176,15 +176,15 @@ describe('client api transport', () => {
     const err = await api.latest().catch((e) => e);
     expect(err.code).toBe('unavailable');
     expect(err.message).toMatch(/Paseo/);
-    expect(err.message).toMatch(/walkie-test/);
+    expect(err.message).toMatch(/collabcast-test/);
     expect(err.message).not.toContain(socketPath);
     expect(err.message).not.toContain('.sock');
   });
 
-  test('standalone mode is told to run walkie start instead of naming a supervisor', () => {
-    const err = unavailableError({ namespace: 'walkie-test', mode: 'standalone' });
+  test('standalone mode is told to run collabcast start instead of naming a supervisor', () => {
+    const err = unavailableError({ namespace: 'collabcast-test', mode: 'standalone' });
     expect(err.code).toBe('unavailable');
-    expect(err.message).toMatch(/walkie start/);
+    expect(err.message).toMatch(/collabcast start/);
     expect(err.message).not.toMatch(/Paseo/);
   });
 
@@ -219,10 +219,10 @@ describe('client api: an unreadable 2xx is a failure, not an empty result', () =
 
     const err = await api.inbox().catch((e) => e);
     expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe('WalkieError');
+    expect(err.name).toBe('CollabcastError');
     expect(err.code).toBe('internal');
     expect(err.status).toBe(200);
-    expect(err.detail).toMatchObject({ namespace: 'walkie-test', status: 200, bytes: 23 });
+    expect(err.detail).toMatchObject({ namespace: 'collabcast-test', status: 200, bytes: 23 });
     // The unreadable body is never echoed: it could contain anything.
     expect(err.message).not.toContain('messages');
     expect(JSON.stringify(err.detail)).not.toContain('01H');

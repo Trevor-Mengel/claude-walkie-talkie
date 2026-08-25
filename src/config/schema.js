@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { WalkieError, describeValue } from '../identity/errors.js';
+import { CollabcastError, describeValue } from '../identity/errors.js';
 import { assertNamespace } from '../identity/namespace.js';
 import { canonicalizePath, containsOrEquals, isInside } from '../identity/paths.js';
 
@@ -10,7 +10,7 @@ import { canonicalizePath, containsOrEquals, isInside } from '../identity/paths.
  */
 
 export const CONFIG_SCHEMA_VERSION = 3;
-export const WALKIE_DIRNAME = '.walkie-talkie';
+export const COLLABCAST_DIRNAME = '.collabcast';
 export const CONFIG_FILENAME = 'config.json';
 export const HISTORY_DIRNAME = 'history';
 export const STORE_DIRNAME = 'store';
@@ -61,32 +61,32 @@ export const DEFAULT_CONFIG = Object.freeze({
   routing: Object.freeze({ root: null, hubs: Object.freeze({}) })
 });
 
-/** `<canonicalRoot>/.walkie-talkie` */
-export function walkieDir(canonicalRoot) {
-  return join(canonicalRoot, WALKIE_DIRNAME);
+/** `<canonicalRoot>/.collabcast` */
+export function collabcastDir(canonicalRoot) {
+  return join(canonicalRoot, COLLABCAST_DIRNAME);
 }
 
-/** `<canonicalRoot>/.walkie-talkie/config.json` */
+/** `<canonicalRoot>/.collabcast/config.json` */
 export function configPath(canonicalRoot) {
-  return join(walkieDir(canonicalRoot), CONFIG_FILENAME);
+  return join(collabcastDir(canonicalRoot), CONFIG_FILENAME);
 }
 
-/** `<canonicalRoot>/.walkie-talkie/history` — snapshot/rollback material. */
+/** `<canonicalRoot>/.collabcast/history` — snapshot/rollback material. */
 export function defaultHistoryDir(canonicalRoot) {
-  return join(walkieDir(canonicalRoot), HISTORY_DIRNAME);
+  return join(collabcastDir(canonicalRoot), HISTORY_DIRNAME);
 }
 
 /**
- * `<canonicalRoot>/.walkie-talkie/store` — the live SQLite store and its WAL/SHM siblings.
+ * `<canonicalRoot>/.collabcast/store` — the live SQLite store and its WAL/SHM siblings.
  * Reserved as a whole directory: the store owner clamps it to 0700 because it holds
  * capability-token hashes, so nothing else may resolve into it.
  */
 export function storeDir(canonicalRoot) {
-  return join(walkieDir(canonicalRoot), STORE_DIRNAME);
+  return join(collabcastDir(canonicalRoot), STORE_DIRNAME);
 }
 
 function invalid(message, detail) {
-  return new WalkieError('config_invalid', message, detail);
+  return new CollabcastError('config_invalid', message, detail);
 }
 
 function requirePlainObject(value, label) {

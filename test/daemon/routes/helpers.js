@@ -23,10 +23,10 @@ import { createEvents } from '../../../src/daemon/events.js';
 import { buildRouters } from '../../../src/daemon/routes/index.js';
 import { createFixtureDir } from '../../helpers/fixture-leaks.js';
 
-export const NAMESPACE = 'walkie-routes';
+export const NAMESPACE = 'collabcast-routes';
 
 const CHANNEL_TEMPLATE = [
-  '# Walkie-Talkie Channel: walkie-routes',
+  '# Collabcast Channel: collabcast-routes',
   '',
   '**Operator:** Route Tests',
   '',
@@ -54,14 +54,14 @@ const stores = [];
  *            config:object, namespace:string, app:object, events:object}}
  */
 export function createFixture({ mode = 'standalone' } = {}) {
-  const root = createFixtureDir('walkie-routes-');
+  const root = createFixtureDir('collabcast-routes-');
   roots.push(root);
-  const wtDir = join(root, '.walkie-talkie');
+  const wtDir = join(root, '.collabcast');
   mkdirSync(join(wtDir, '.sessions'), { recursive: true });
   const channelPath = join(wtDir, 'channel.md');
   writeFileSync(channelPath, CHANNEL_TEMPLATE, 'utf8');
 
-  const storePath = join(wtDir, 'store', 'walkie.db');
+  const storePath = join(wtDir, 'store', 'collabcast.db');
   const store = openStore({ path: storePath, namespace: NAMESPACE });
   stores.push(store);
 

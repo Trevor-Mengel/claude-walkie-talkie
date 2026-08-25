@@ -1,6 +1,6 @@
 // The store fixture's own contract: it removes every directory it creates.
 //
-// This is not decoration. Measured before the fix: the suite left `walkie-store-*`
+// This is not decoration. Measured before the fix: the suite left `collabcast-store-*`
 // trees behind in the OS temp dir, because cleanup ran off a caller-held
 // `let fixture` — so a test body that opened a SECOND store silently orphaned
 // the first one's directory, and nothing failed. `createTmpStore` now tracks
@@ -26,8 +26,8 @@ describe('createTmpStore cleans up every store it hands out', () => {
     expect(existsSync(second.path)).toBe(true);
     // Both are stamped, so global-setup's teardown can attribute a leak to this run.
     for (const root of roots) {
-      expect(readFileSync(join(root, '.walkie-run'), 'utf8').trim()).toBe(
-        process.env.WALKIE_ISOLATION_ROOT
+      expect(readFileSync(join(root, '.collabcast-run'), 'utf8').trim()).toBe(
+        process.env.COLLABCAST_ISOLATION_ROOT
       );
     }
   });

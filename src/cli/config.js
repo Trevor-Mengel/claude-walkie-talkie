@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { walkieError } from '../identity/errors.js';
+import { collabcastError } from '../identity/errors.js';
 import { canonicalizePath } from '../identity/paths.js';
 import { configPath, validateConfig } from '../config/schema.js';
 import { resolveNamespace } from '../identity/resolve.js';
@@ -14,11 +14,11 @@ import { resolveNamespace } from '../identity/resolve.js';
 export function parseAssignment(assignment) {
   const index = String(assignment).indexOf('=');
   if (index <= 0) {
-    throw walkieError('invalid_request', 'use --set key=value, e.g. --set mode=standalone');
+    throw collabcastError('invalid_request', 'use --set key=value, e.g. --set mode=standalone');
   }
   const path = assignment.slice(0, index).split('.').filter(Boolean);
   if (path.length === 0) {
-    throw walkieError('invalid_request', 'the key in --set key=value may not be empty');
+    throw collabcastError('invalid_request', 'the key in --set key=value may not be empty');
   }
   const raw = assignment.slice(index + 1);
   let value = raw;
@@ -64,7 +64,7 @@ export async function configCommand(opts = {}) {
 
   const { path: keyPath, value } = parseAssignment(opts.set);
   const proposed = assignDeep(current, keyPath, value);
-  // Validated with the same function the service and every client use, so `walkie config` can
+  // Validated with the same function the service and every client use, so `collabcast config` can
   // never produce something they would reject.
   const { namespace } = resolveNamespace({ cwd: canonicalRoot });
   validateConfig(proposed, { canonicalRoot, expectNamespace: namespace });

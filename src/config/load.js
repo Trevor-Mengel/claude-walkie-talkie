@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { NOT_A_REPO_RE, runGit } from '../core/git.js';
-import { WalkieError } from '../identity/errors.js';
+import { CollabcastError } from '../identity/errors.js';
 import { canonicalizePath } from '../identity/paths.js';
 import { configPath, validateConfig } from './schema.js';
 
@@ -12,14 +12,14 @@ function deepFreeze(value) {
 }
 
 /**
- * Reads and validates `<canonicalRoot>/.walkie-talkie/config.json`, applying schema defaults for
+ * Reads and validates `<canonicalRoot>/.collabcast/config.json`, applying schema defaults for
  * absent optional keys, and returns it deeply frozen.
  *
  * @param {{canonicalRoot:string, path?:string, expectNamespace?:string, storeDir?:string}} opts
  */
 export function loadConfig({ canonicalRoot, path, expectNamespace, storeDir } = {}) {
   if (typeof canonicalRoot !== 'string' || canonicalRoot.length === 0) {
-    throw new WalkieError('config_invalid', 'loadConfig requires canonicalRoot');
+    throw new CollabcastError('config_invalid', 'loadConfig requires canonicalRoot');
   }
   const root = canonicalizePath(canonicalRoot);
   const file = path === undefined ? configPath(root) : canonicalizePath(path);
@@ -29,11 +29,11 @@ export function loadConfig({ canonicalRoot, path, expectNamespace, storeDir } = 
     text = readFileSync(file, 'utf8');
   } catch (err) {
     if (err.code === 'ENOENT') {
-      throw new WalkieError('not_found', `no walkie config at ${file}`, { path: file });
+      throw new CollabcastError('not_found', `no collabcast config at ${file}`, { path: file });
     }
-    throw new WalkieError(
+    throw new CollabcastError(
       'config_invalid',
-      `walkie config is unreadable: ${file} (${err.code || 'read error'})`,
+      `collabcast config is unreadable: ${file} (${err.code || 'read error'})`,
       { path: file }
     );
   }
@@ -42,7 +42,7 @@ export function loadConfig({ canonicalRoot, path, expectNamespace, storeDir } = 
   try {
     raw = JSON.parse(text);
   } catch (err) {
-    throw new WalkieError('config_invalid', `walkie config is not valid JSON: ${err.message}`, {
+    throw new CollabcastError('config_invalid', `collabcast config is not valid JSON: ${err.message}`, {
       path: file
     });
   }
@@ -74,7 +74,7 @@ function nearestExistingDir(start) {
 }
 
 /**
- * Confirms a path is safe to write walkie history/snapshot material into: it must be BOTH
+ * Confirms a path is safe to write collabcast history/snapshot material into: it must be BOTH
  * git-ignored AND untracked, so a prune or snapshot can never mutate version-controlled files.
  *
  * A tracked path is rejected even when an ignore rule also matches it.
@@ -119,7 +119,7 @@ export function verifyPathExcluded(target, { repoRoot, env } = {}) {
  * Throws `config_invalid` unless `target` is git-excluded — the strict form, which refuses on
  * every non-ok reason including `not-ignored` and `git-indeterminate`.
  *
- * The paths walkie writes on the message path (`channel.md`, `.sessions/`) are checked ONCE at
+ * The paths collabcast writes on the message path (`channel.md`, `.sessions/`) are checked ONCE at
  * service start by `assertChannelStateExcluded` below, not per write. Use this one for a
  * write that is rare, destructive and operator-initiated — a retention prune or a snapshot
  * rollback — where paying for a git call, and refusing on anything short of proven-excluded,
@@ -131,9 +131,9 @@ export function verifyPathExcluded(target, { repoRoot, env } = {}) {
 export function assertPathExcluded(target, opts = {}) {
   const result = verifyPathExcluded(target, opts);
   if (!result.ok) {
-    throw new WalkieError(
+    throw new CollabcastError(
       'config_invalid',
-      `${result.path} is not safe for walkie history writes (${result.reason})`,
+      `${result.path} is not safe for collabcast history writes (${result.reason})`,
       { path: result.path, reason: result.reason }
     );
   }
@@ -141,20 +141,20 @@ export function assertPathExcluded(target, opts = {}) {
 }
 
 /**
- * Boot-time guard for the walkie state a repository must never track: `channel.md`
+ * Boot-time guard for the collabcast state a repository must never track: `channel.md`
  * (the document every agent reads into its context, and an input the watcher honours
  * on external edit) and `.sessions/` (where `appendRevision` writes edit history on
  * every message edit).
  *
  * A committed `channel.md` ships a poisoned channel to every clone; a committed
- * `.sessions/` means walkie mutates version-controlled files on every edit. Both are
+ * `.sessions/` means collabcast mutates version-controlled files on every edit. Both are
  * misconfiguration a human has to fix, so this runs ONCE at service start rather than
  * on the write hot path — loud at boot beats silent on the first edit.
  *
  * Only `tracked` is fatal, because only `tracked` is a fact: the file IS in version
- * control. `not-ignored` (untracked, no ignore rule yet — `walkie init` writes one),
+ * control. `not-ignored` (untracked, no ignore rule yet — `collabcast init` writes one),
  * `git-indeterminate` and `git-unavailable` are all states where refusing to boot
- * would take the service down over a broken git config rather than over walkie state,
+ * would take the service down over a broken git config rather than over collabcast state,
  * so they warn instead. Outside a repository there is nothing to check.
  *
  * @param {{channelPath:string, sessionsDir:string, repoRoot?:string,
@@ -170,7 +170,7 @@ export function assertChannelStateExcluded({
 } = {}) {
   const targets = [
     ['channel.md', channelPath],
-    ['.walkie-talkie/.sessions', sessionsDir]
+    ['.collabcast/.sessions', sessionsDir]
   ].filter(([, target]) => typeof target === 'string' && target.length > 0);
 
   const checked = [];
@@ -178,19 +178,19 @@ export function assertChannelStateExcluded({
     const result = verifyPathExcluded(target, { repoRoot, env });
     checked.push({ label, result });
     if (result.reason === 'tracked') {
-      throw new WalkieError(
+      throw new CollabcastError(
         'config_invalid',
-        `${label} is tracked in git (${result.path}). Walkie writes to it, so a commit ` +
+        `${label} is tracked in git (${result.path}). Collabcast writes to it, so a commit ` +
           'would version local channel state and let a clone ship a forged channel. Run ' +
-          `\`git rm -r --cached ${result.path}\` and add \`.walkie-talkie/\` to .gitignore, ` +
+          `\`git rm -r --cached ${result.path}\` and add \`.collabcast/\` to .gitignore, ` +
           'then start again.',
         { path: result.path, reason: result.reason, label }
       );
     }
     if (!result.ok) {
       warn(
-        `walkie: ${label} is not git-excluded (${result.reason}): ${result.path}. Add ` +
-          '`.walkie-talkie/` to .gitignore so local channel state is never committed.'
+        `collabcast: ${label} is not git-excluded (${result.reason}): ${result.path}. Add ` +
+          '`.collabcast/` to .gitignore so local channel state is never committed.'
       );
     }
   }

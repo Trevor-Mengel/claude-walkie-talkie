@@ -1,7 +1,7 @@
 /**
- * OMP hook: operator-approval gate for Walkie enrollment.
+ * OMP hook: operator-approval gate for Collabcast enrollment.
  *
- * Nothing enrolls itself. When an agent calls the Walkie enrollment tool, this hook
+ * Nothing enrolls itself. When an agent calls the Collabcast enrollment tool, this hook
  * interrupts the call, shows the operator exactly what is being requested, and — only on
  * an explicit `Approve` — fetches a one-use enrollment code from the local authority and
  * injects it into the tool's raw execution arguments. The model can neither author nor
@@ -10,7 +10,7 @@
  * Design invariants (each one is a bug that has bitten this gate before):
  *
  *  1. OMP namespaces MCP tools as `mcp__<serverName>_<toolName>`. Matching a bare
- *     `walkie_enroll` silently never fires for the MCP path — a fail-OPEN gate. Matching
+ *     `collabcast_enroll` silently never fires for the MCP path — a fail-OPEN gate. Matching
  *     is therefore allowlist-generated in `gate.js`, and an enrollment-shaped name from an
  *     unrecognised server is BLOCKED rather than passed.
  *  2. `ctx.ui.confirm` renders Yes/No with **Yes pre-selected**, so a stray ENTER
@@ -38,31 +38,31 @@ import { DEFAULT_TIMEOUT_MS, requestEnrollmentCode } from './authority.js';
 import { redact } from './redact.js';
 
 /** Dialog title shown to the operator. */
-export const PROMPT_TITLE = 'Walkie enrollment';
+export const PROMPT_TITLE = 'Collabcast enrollment';
 
 const BLOCK_UNDESCRIBABLE = {
   code: 'invalid_request',
   reason:
-    'walkie [invalid_request]: enrollment request did not state a namespace, role and ' +
+    'collabcast [invalid_request]: enrollment request did not state a namespace, role and ' +
     'scopes, so it cannot be shown to the operator for approval'
 };
 
 const BLOCK_UNCONFIGURED = {
   code: 'config_invalid',
   reason:
-    'walkie [config_invalid]: the enrollment hook is not configured for this session; ' +
+    'collabcast [config_invalid]: the enrollment hook is not configured for this session; ' +
     'the operator must set the authority socket and hook secret'
 };
 
 const BLOCK_AUTHORITY = {
   code: 'internal',
-  reason: 'walkie [internal]: the walkie authority did not issue an enrollment code'
+  reason: 'collabcast [internal]: the collabcast authority did not issue an enrollment code'
 };
 
 const BLOCK_UNRENDERABLE = {
   code: 'invalid_request',
   reason:
-    'walkie [invalid_request]: the enrollment request contained a namespace, role or scope ' +
+    'collabcast [invalid_request]: the enrollment request contained a namespace, role or scope ' +
     'that cannot be shown to the operator as one line, so it was refused without asking'
 };
 
@@ -177,11 +177,11 @@ function parseTimeout(raw) {
  */
 export function readConfig(env = process.env) {
   return {
-    allowedServers: parseServers(env.WALKIE_MCP_SERVERS),
-    socketPath: env.WALKIE_AUTHORITY_SOCKET,
-    hookSecret: env.WALKIE_HOOK_SECRET,
-    timeoutMs: parseTimeout(env.WALKIE_HOOK_TIMEOUT_MS),
-    logPath: env.WALKIE_HOOK_LOG
+    allowedServers: parseServers(env.COLLABCAST_MCP_SERVERS),
+    socketPath: env.COLLABCAST_AUTHORITY_SOCKET,
+    hookSecret: env.COLLABCAST_HOOK_SECRET,
+    timeoutMs: parseTimeout(env.COLLABCAST_HOOK_TIMEOUT_MS),
+    logPath: env.COLLABCAST_HOOK_LOG
   };
 }
 
@@ -251,7 +251,7 @@ export function buildPromptBody(request) {
       ? 'authority default'
       : `${promptField(request.ttlSeconds)}s`;
   return [
-    'An agent is asking to enroll on the walkie channel.',
+    'An agent is asking to enroll on the collabcast channel.',
     '',
     `Namespace: ${promptField(request.namespace)}`,
     `Role:      ${promptField(request.role)}`,
@@ -413,7 +413,7 @@ export function createEnrollHandler({ env, enroll = requestEnrollmentCode } = {}
  */
 export default function hook(pi) {
   if (!pi || typeof pi.on !== 'function') {
-    throw new Error('walkie-enroll: hook API does not expose on()');
+    throw new Error('collabcast-enroll: hook API does not expose on()');
   }
   pi.on('tool_call', createEnrollHandler());
 }

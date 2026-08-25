@@ -9,7 +9,7 @@
 //   - minting it had already consumed a ONE-USE operator approval, so recovering meant asking
 //     a human to click approve a second time;
 //   - and `requireActive` then told the model the capability was "expired or revoked" and to
-//     call `walkie_enroll` again — which is both a lie and the most expensive possible advice.
+//     call `collabcast_enroll` again — which is both a lie and the most expensive possible advice.
 //
 // The rule under test: only an authentication/authorization refusal may invalidate. Everything
 // else keeps the credential and surfaces a distinguishable error. Both directions are asserted
@@ -18,7 +18,7 @@
 
 import { describe, test, expect } from 'vitest';
 import { createCapabilityHolder } from '../../src/mcp-server/capability.js';
-import { walkieError } from '../../src/identity/errors.js';
+import { collabcastError } from '../../src/identity/errors.js';
 
 const TOKEN = 'TrN4xLmA9vTbNc4WkYz7RgHjDf1EoUiXaSlBn0MpQwE';
 
@@ -36,7 +36,7 @@ const SELF = {
  * proof that a recovery did NOT go back through enrollment: `enrollExchange` is counted too,
  * and a re-enrollment is what burns a second operator approval.
  */
-function api({ failures = 0, error = walkieError('unavailable', 'the service is not listening') } = {}) {
+function api({ failures = 0, error = collabcastError('unavailable', 'the service is not listening') } = {}) {
   const counts = { self: 0, enrollExchange: 0 };
   return {
     counts,
@@ -58,7 +58,7 @@ function holderFor(stub, env = {}) {
   const holder = createCapabilityHolder({
     api: stub,
     tokenBox,
-    namespace: 'walkie-test',
+    namespace: 'collabcast-test',
     env,
     warn: () => {}
   });
@@ -68,18 +68,18 @@ function holderFor(stub, env = {}) {
 /** Every non-refusal a real client can produce out of `GET /self`. */
 const TRANSIENT = [
   // `unavailable` is what src/client/api.js raises for ECONNREFUSED / ENOENT / timeout.
-  walkieError('unavailable', 'the walkie-svc service is not accepting connections'),
+  collabcastError('unavailable', 'the collabcast-svc service is not accepting connections'),
   // `internal` is the socket failure it cannot classify, and an unreadable 5xx body.
-  walkieError('internal', 'the walkie service connection failed'),
-  // Not a WalkieError at all: a driver-level throw must be the most conservative case of all.
+  collabcastError('internal', 'the collabcast service connection failed'),
+  // Not a CollabcastError at all: a driver-level throw must be the most conservative case of all.
   new TypeError('socket hang up')
 ];
 
 /** Answers that really are the server refusing this credential. */
 const REFUSALS = [
-  walkieError('unauthenticated', 'capability not accepted'),
-  walkieError('forbidden', 'this principal may not resolve itself'),
-  walkieError('wrong_namespace', 'that capability belongs to another channel')
+  collabcastError('unauthenticated', 'capability not accepted'),
+  collabcastError('forbidden', 'this principal may not resolve itself'),
+  collabcastError('wrong_namespace', 'that capability belongs to another channel')
 ];
 
 describe('adopt: a transient GET /self failure', () => {
@@ -124,7 +124,7 @@ describe('adopt: a transient GET /self failure', () => {
       }
     })();
     expect(blocked.code).toBe('unavailable');
-    expect(blocked.message).toMatch(/do NOT call walkie_enroll/);
+    expect(blocked.message).toMatch(/do NOT call collabcast_enroll/);
     expect(blocked.message).not.toMatch(/expired or revoked/);
     expect(blocked.detail).toEqual({ capabilityState: 'unverified' });
   });
@@ -147,12 +147,12 @@ describe('adopt: a genuine refusal still invalidates, exactly as before', () => 
     const blocked = await holder.revalidate().catch((err) => err);
     expect(blocked.code).toBe('unauthenticated');
     expect(blocked.message).toMatch(/expired or revoked/);
-    expect(blocked.message).toMatch(/walkie_enroll/);
+    expect(blocked.message).toMatch(/collabcast_enroll/);
   });
 });
 
 describe('adoptInjected: the same rule, same both directions', () => {
-  const env = { WALKIE_CAPABILITY: TOKEN };
+  const env = { COLLABCAST_CAPABILITY: TOKEN };
 
   test.each(TRANSIENT)('a transient failure keeps the injected credential (%s)', async (error) => {
     const stub = api({ failures: 1, error });

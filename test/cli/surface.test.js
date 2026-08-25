@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRegisteredNamespace } from '../helpers/registered-namespace.js';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'walkie.js');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'collabcast.js');
 const TOKEN = 'QqQ9xLmA9vTbNc4WkYz7RgHjDf1EoUiXaSlBn0MpQwE';
 
 const SELF = {
@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 /** Run the CLI and resolve with its outcome, never throwing on a non-zero exit. */
-function walkie(args, { cwd, env } = {}) {
+function collabcast(args, { cwd, env } = {}) {
   return new Promise((resolve) => {
     execFile(
       process.execPath,
@@ -68,13 +68,13 @@ function stubService(socketPath, handler) {
 
 describe('command surface', () => {
   test('the permit model is gone from the CLI entirely', async () => {
-    const help = await walkie(['--help']);
+    const help = await collabcast(['--help']);
     expect(help.code).toBe(0);
     expect(help.stdout).not.toMatch(/\bpermit\b/);
     expect(help.stdout).not.toMatch(/^\s*remove\b/m);
 
     for (const gone of ['permit', 'remove', 'invite', 'alias']) {
-      const result = await walkie([gone, 'someone']);
+      const result = await collabcast([gone, 'someone']);
       expect(result.code, `${gone} should not exist`).not.toBe(0);
       expect(result.stderr).toMatch(/unknown command/i);
       expect(result.stderr).not.toMatch(/^\s+at /m);
@@ -82,7 +82,7 @@ describe('command surface', () => {
   });
 
   test('the replacements are advertised', async () => {
-    const { stdout, code } = await walkie(['--help']);
+    const { stdout, code } = await collabcast(['--help']);
     expect(code).toBe(0);
     for (const command of ['whoami', 'enroll', 'revoke', 'ack', 'sessions', 'rename', 'talk']) {
       expect(stdout).toContain(command);
@@ -90,16 +90,16 @@ describe('command surface', () => {
   });
 
   test('--version still prints semver', async () => {
-    const { stdout, code } = await walkie(['--version']);
+    const { stdout, code } = await collabcast(['--version']);
     expect(code).toBe(0);
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   test('talk no longer offers --as, so an operator cannot post under another alias', async () => {
-    const { stdout } = await walkie(['help', 'talk']);
+    const { stdout } = await collabcast(['help', 'talk']);
     expect(stdout).not.toContain('--as');
     const ns = createRegisteredNamespace();
-    const attempt = await walkie(['talk', '--as', 'someone-else', 'hi'], {
+    const attempt = await collabcast(['talk', '--as', 'someone-else', 'hi'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -111,14 +111,14 @@ describe('command surface', () => {
 describe('failure contract', () => {
   test('a missing operator credential exits 2 with one clean line', async () => {
     const ns = createRegisteredNamespace();
-    const { code, stderr, stdout } = await walkie(['whoami'], {
+    const { code, stderr, stdout } = await collabcast(['whoami'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
 
     expect(code).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toMatch(/^walkie \[unauthenticated]: /);
+    expect(stderr).toMatch(/^collabcast \[unauthenticated]: /);
     expect(stderr.trim().split('\n')).toHaveLength(1);
     expect(stderr).not.toMatch(/^\s+at /m);
     expect(stderr).not.toContain('node:internal');
@@ -127,10 +127,10 @@ describe('failure contract', () => {
   test('an unreachable service exits 3 and names the supervisor', async () => {
     const ns = createRegisteredNamespace({ mode: 'managed' });
     ns.writeOperatorCredential(TOKEN);
-    const { code, stderr } = await walkie(['whoami'], { cwd: ns.canonicalRoot, env: ns.env });
+    const { code, stderr } = await collabcast(['whoami'], { cwd: ns.canonicalRoot, env: ns.env });
 
     expect(code).toBe(3);
-    expect(stderr).toMatch(/^walkie \[unavailable]: /);
+    expect(stderr).toMatch(/^collabcast \[unavailable]: /);
     expect(stderr).toMatch(/Paseo/);
     expect(stderr).not.toContain(ns.socketPath);
     expect(stderr).not.toMatch(/^\s+at /m);
@@ -138,13 +138,13 @@ describe('failure contract', () => {
 
   test('an unregistered directory is refused, not silently defaulted', async () => {
     const ns = createRegisteredNamespace();
-    const { code, stderr } = await walkie(['sessions'], {
+    const { code, stderr } = await collabcast(['sessions'], {
       cwd: ns.canonicalRoot,
       // A registered project, but the identity map does not know it.
-      env: { ...ns.env, WALKIE_IDENTITIES: join(ns.base, 'nope.json') }
+      env: { ...ns.env, COLLABCAST_IDENTITIES: join(ns.base, 'nope.json') }
     });
     expect(code).toBe(1);
-    expect(stderr).toMatch(/^walkie \[config_invalid]: /);
+    expect(stderr).toMatch(/^collabcast \[config_invalid]: /);
   });
 });
 
@@ -152,9 +152,9 @@ describe('managed mode refuses lifecycle commands', () => {
   test('start, stop and status all defer to Paseo', async () => {
     const ns = createRegisteredNamespace({ mode: 'managed' });
     for (const command of ['start', 'stop', 'status']) {
-      const { code, stderr } = await walkie([command], { cwd: ns.canonicalRoot, env: ns.env });
+      const { code, stderr } = await collabcast([command], { cwd: ns.canonicalRoot, env: ns.env });
       expect(code, `${command} in managed mode`).toBe(2);
-      expect(stderr).toMatch(/^walkie \[forbidden]: /);
+      expect(stderr).toMatch(/^collabcast \[forbidden]: /);
       expect(stderr).toMatch(/managed/);
       expect(stderr).not.toMatch(/^\s+at /m);
     }
@@ -162,10 +162,10 @@ describe('managed mode refuses lifecycle commands', () => {
 
   test('standalone mode does not refuse status', async () => {
     const ns = createRegisteredNamespace({ mode: 'standalone' });
-    const { code, stdout } = await walkie(['status'], { cwd: ns.canonicalRoot, env: ns.env });
+    const { code, stdout } = await collabcast(['status'], { cwd: ns.canonicalRoot, env: ns.env });
     expect(code).toBe(0);
     expect(stdout).toMatch(/not answering/);
-    expect(stdout).toMatch(/walkie start/);
+    expect(stdout).toMatch(/collabcast start/);
   });
 });
 
@@ -175,7 +175,7 @@ describe('whoami', () => {
     ns.writeOperatorCredential(TOKEN);
     const service = await stubService(ns.socketPath, () => ({ status: 200, json: SELF }));
 
-    const { code, stdout, stderr } = await walkie(['whoami'], {
+    const { code, stdout, stderr } = await collabcast(['whoami'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -205,7 +205,7 @@ describe('whoami', () => {
     });
     await stubService(ns.socketPath, () => ({ status: 200, json: SELF }));
 
-    const { code, stdout } = await walkie(['whoami'], { cwd: ns.canonicalRoot, env: ns.env });
+    const { code, stdout } = await collabcast(['whoami'], { cwd: ns.canonicalRoot, env: ns.env });
 
     expect(code).toBe(0);
     expect(stdout).toContain('role:       operator');
@@ -218,7 +218,7 @@ describe('whoami', () => {
     ns.writeOperatorCredential(TOKEN);
     await stubService(ns.socketPath, () => ({ status: 200, json: SELF }));
 
-    const { code, stdout } = await walkie(['whoami', '--json'], {
+    const { code, stdout } = await collabcast(['whoami', '--json'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -240,10 +240,10 @@ describe('enroll --recovery', () => {
   test('refuses without --recovery and explains the ordinary path', async () => {
     const ns = createRegisteredNamespace();
     ns.writeOperatorCredential(TOKEN);
-    const { code, stderr } = await walkie(['enroll'], { cwd: ns.canonicalRoot, env: ns.env });
+    const { code, stderr } = await collabcast(['enroll'], { cwd: ns.canonicalRoot, env: ns.env });
     expect(code).toBe(1);
     expect(stderr).toMatch(/refusing to enroll without --recovery/);
-    expect(stderr).toMatch(/walkie_enroll/);
+    expect(stderr).toMatch(/collabcast_enroll/);
     expect(stderr).toMatch(/approval hook/);
   });
 
@@ -263,7 +263,7 @@ describe('enroll --recovery', () => {
       }
     }));
 
-    const { code, stdout } = await walkie(['enroll', '--recovery'], {
+    const { code, stdout } = await collabcast(['enroll', '--recovery'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -273,7 +273,7 @@ describe('enroll --recovery', () => {
     expect(stdout).toContain(minted);
     expect(stdout.split(minted)).toHaveLength(2);
     expect(stdout).toMatch(/shown once/);
-    expect(stdout).toMatch(/WALKIE_CAPABILITY/);
+    expect(stdout).toMatch(/COLLABCAST_CAPABILITY/);
     // The operator's own token is never echoed while using it.
     expect(stdout).not.toContain(TOKEN);
 
@@ -291,7 +291,7 @@ describe('enroll --recovery', () => {
   test('a role that cannot be delegated is refused before any request', async () => {
     const ns = createRegisteredNamespace();
     ns.writeOperatorCredential(TOKEN);
-    const { code, stderr } = await walkie(['enroll', '--recovery', '--role', 'root'], {
+    const { code, stderr } = await collabcast(['enroll', '--recovery', '--role', 'root'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -302,7 +302,7 @@ describe('enroll --recovery', () => {
   test('a scope outside the role allowlist is refused with the allowlist', async () => {
     const ns = createRegisteredNamespace();
     ns.writeOperatorCredential(TOKEN);
-    const { code, stderr } = await walkie(
+    const { code, stderr } = await collabcast(
       ['enroll', '--recovery', '--role', 'listener', '--scopes', 'channel:publish'],
       { cwd: ns.canonicalRoot, env: ns.env }
     );
@@ -316,7 +316,7 @@ describe('enroll --recovery', () => {
     ns.writeOperatorCredential(TOKEN);
     const service = await stubService(ns.socketPath, () => ({ status: 200, json: { ok: true } }));
 
-    const { code, stdout } = await walkie(['revoke', 'cap_new'], {
+    const { code, stdout } = await collabcast(['revoke', 'cap_new'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -338,9 +338,9 @@ describe('operator writes state no identity', () => {
       return { status: 200, json: { ok: true } };
     });
 
-    await walkie(['talk', 'hello', 'channel'], { cwd: ns.canonicalRoot, env: ns.env });
-    await walkie(['edit', '01HZZZ', 'fixed', 'it'], { cwd: ns.canonicalRoot, env: ns.env });
-    await walkie(['archive', '01HZZZ', '--reason', 'stale'], { cwd: ns.canonicalRoot, env: ns.env });
+    await collabcast(['talk', 'hello', 'channel'], { cwd: ns.canonicalRoot, env: ns.env });
+    await collabcast(['edit', '01HZZZ', 'fixed', 'it'], { cwd: ns.canonicalRoot, env: ns.env });
+    await collabcast(['archive', '01HZZZ', '--reason', 'stale'], { cwd: ns.canonicalRoot, env: ns.env });
 
     const bodies = service.seen.map((r) => JSON.parse(r.body));
     expect(bodies).toEqual([
@@ -359,7 +359,7 @@ describe('operator writes state no identity', () => {
     const ID = '01J0000000000000000000000A';
     const service = await stubService(ns.socketPath, () => ({ status: 200, json: { id: ID } }));
 
-    const { code, stdout } = await walkie(['ack', ID], { cwd: ns.canonicalRoot, env: ns.env });
+    const { code, stdout } = await collabcast(['ack', ID], { cwd: ns.canonicalRoot, env: ns.env });
     expect(code).toBe(0);
     expect(stdout).toMatch(new RegExp(`Acknowledged through ${ID}`));
     expect(service.seen.map((r) => r.url)).toEqual(['/cursor/read', '/cursor/ack']);
@@ -370,7 +370,7 @@ describe('operator writes state no identity', () => {
       { id: ID, include_memory_updates: false }
     ]);
 
-    const noRead = await walkie(['ack', ID, '--no-mark-read'], {
+    const noRead = await collabcast(['ack', ID, '--no-mark-read'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -386,7 +386,7 @@ describe('operator writes state no identity', () => {
     ns.writeOperatorCredential(TOKEN);
     const service = await stubService(ns.socketPath, () => ({ status: 200, json: { id: 'x' } }));
 
-    const { code, stderr } = await walkie(['ack', '2'], { cwd: ns.canonicalRoot, env: ns.env });
+    const { code, stderr } = await collabcast(['ack', '2'], { cwd: ns.canonicalRoot, env: ns.env });
     expect(code).not.toBe(0);
     expect(stderr).toMatch(/message you processed/);
     expect(service.seen).toEqual([]);
@@ -405,7 +405,7 @@ describe('operator writes state no identity', () => {
       }
     }));
 
-    const { code, stdout } = await walkie(['inbox', '--format', 'json'], {
+    const { code, stdout } = await collabcast(['inbox', '--format', 'json'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
@@ -432,20 +432,20 @@ describe('operator writes state no identity', () => {
       json: { error: { code: 'conflict', message: 'alias already in use', detail: { alias: 'trev' } } }
     }));
 
-    const { code, stderr } = await walkie(['rename', 'trev'], {
+    const { code, stderr } = await collabcast(['rename', 'trev'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
     expect(code).toBe(2);
-    expect(stderr).toMatch(/^walkie \[conflict]: alias already in use/);
+    expect(stderr).toMatch(/^collabcast \[conflict]: alias already in use/);
     expect(stderr).not.toMatch(/^\s+at /m);
   });
 });
 
-describe('walkie config', () => {
+describe('collabcast config', () => {
   test('prints the config', async () => {
     const ns = createRegisteredNamespace({ mode: 'managed' });
-    const { code, stdout } = await walkie(['config'], { cwd: ns.canonicalRoot, env: ns.env });
+    const { code, stdout } = await collabcast(['config'], { cwd: ns.canonicalRoot, env: ns.env });
     expect(code).toBe(0);
     expect(JSON.parse(stdout)).toEqual({
       schemaVersion: 3,
@@ -456,45 +456,45 @@ describe('walkie config', () => {
 
   test('a valid --set is applied with its real type, not as a string', async () => {
     const ns = createRegisteredNamespace({ mode: 'managed' });
-    const enabled = await walkie(['config', '--set', 'transport.tcp.enabled=false'], {
+    const enabled = await collabcast(['config', '--set', 'transport.tcp.enabled=false'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
     expect(enabled.code).toBe(0);
     const after = JSON.parse(
-      readFileSync(join(ns.walkieDir, 'config.json'), 'utf8')
+      readFileSync(join(ns.collabcastDir, 'config.json'), 'utf8')
     );
     expect(after.transport).toEqual({ tcp: { enabled: false } });
 
-    const mode = await walkie(['config', '--set', 'mode=standalone'], {
+    const mode = await collabcast(['config', '--set', 'mode=standalone'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });
     expect(mode.code).toBe(0);
-    expect(JSON.parse(readFileSync(join(ns.walkieDir, 'config.json'), 'utf8')).mode).toBe(
+    expect(JSON.parse(readFileSync(join(ns.collabcastDir, 'config.json'), 'utf8')).mode).toBe(
       'standalone'
     );
   });
 
   test('a --set that would brick the namespace is refused and nothing is written', async () => {
     const ns = createRegisteredNamespace({ mode: 'managed' });
-    const before = readFileSync(join(ns.walkieDir, 'config.json'), 'utf8');
+    const before = readFileSync(join(ns.collabcastDir, 'config.json'), 'utf8');
 
     for (const assignment of ['mode=frantic', 'nonsense=1', 'retention.hotDays=0']) {
-      const { code, stderr } = await walkie(['config', '--set', assignment], {
+      const { code, stderr } = await collabcast(['config', '--set', assignment], {
         cwd: ns.canonicalRoot,
         env: ns.env
       });
       expect(code, assignment).toBe(1);
-      expect(stderr).toMatch(/^walkie \[config_invalid]: /);
+      expect(stderr).toMatch(/^collabcast \[config_invalid]: /);
       expect(stderr).not.toMatch(/^\s+at /m);
     }
-    expect(readFileSync(join(ns.walkieDir, 'config.json'), 'utf8')).toBe(before);
+    expect(readFileSync(join(ns.collabcastDir, 'config.json'), 'utf8')).toBe(before);
   });
 
   test('changing the namespace out from under the identity map is refused', async () => {
     const ns = createRegisteredNamespace({ mode: 'managed' });
-    const { code, stderr } = await walkie(['config', '--set', 'namespace=something-else'], {
+    const { code, stderr } = await collabcast(['config', '--set', 'namespace=something-else'], {
       cwd: ns.canonicalRoot,
       env: ns.env
     });

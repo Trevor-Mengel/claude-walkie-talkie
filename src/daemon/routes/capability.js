@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { walkieError } from '../../identity/errors.js';
+import { collabcastError } from '../../identity/errors.js';
 import { getCapability, revokeCapability } from '../../store/capabilities.js';
 import { audit } from '../../store/audit.js';
 import { handler } from './support.js';
@@ -26,13 +26,13 @@ export function capabilityRoutes({ store, namespace } = {}) {
   router.delete(
     '/capability/:id',
     handler(async (req, res) => {
-      const principal = req.walkie.principal;
+      const principal = req.collabcast.principal;
       const id = req.params.id;
       const target = getCapability(store, id);
       // A capability that does not exist and one belonging to another namespace
       // are the same answer: `not_found`, so revocation cannot be used to probe
       // which capability ids are live.
-      if (!target) throw walkieError('not_found', 'capability not found', { id });
+      if (!target) throw collabcastError('not_found', 'capability not found', { id });
 
       const isSelf = target.principalId === principal.id;
       const isOperator = principal.role === 'operator';
@@ -45,7 +45,7 @@ export function capabilityRoutes({ store, namespace } = {}) {
           outcome: 'denied',
           detail: { reason: 'not_owner' }
         });
-        throw walkieError('forbidden', 'only an operator or the holder may revoke a capability', {
+        throw collabcastError('forbidden', 'only an operator or the holder may revoke a capability', {
           id
         });
       }

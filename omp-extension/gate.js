@@ -1,22 +1,22 @@
 /**
- * Pure decision logic for the Walkie enrollment gate.
+ * Pure decision logic for the Collabcast enrollment gate.
  *
  * This module has no dependency on OMP, on the network, or on the filesystem, so the
- * whole truth table is unit-testable in isolation. `walkie-enroll.js` is the only
+ * whole truth table is unit-testable in isolation. `collabcast-enroll.js` is the only
  * place that talks to OMP or to the authority socket.
  *
  * Threat model note: OMP namespaces MCP-provided tools as `mcp__<serverName>_<toolName>`.
- * A gate that matches only the bare `walkie_enroll` never fires for the MCP path, which
+ * A gate that matches only the bare `collabcast_enroll` never fires for the MCP path, which
  * fails OPEN. Matching is therefore built from an explicit allowlist of server names, and
  * anything that looks like an enrollment call but is not an exact allowlisted name is
  * BLOCKED rather than passed through.
  */
 
-/** The unqualified Walkie enrollment tool name. */
-export const ENROLL_TOOL = 'walkie_enroll';
+/** The unqualified Collabcast enrollment tool name. */
+export const ENROLL_TOOL = 'collabcast_enroll';
 
-/** MCP server names whose `walkie_enroll` is accepted when nothing is configured. */
-export const DEFAULT_ALLOWED_SERVERS = ['walkie-talkie'];
+/** MCP server names whose `collabcast_enroll` is accepted when nothing is configured. */
+export const DEFAULT_ALLOWED_SERVERS = ['collabcast'];
 
 /** The two selectable options, Deny first so it is the pre-selected default. */
 export const DENY_OPTION = 'Deny';
@@ -24,11 +24,11 @@ export const APPROVE_OPTION = 'Approve';
 export const SELECT_OPTIONS = [DENY_OPTION, APPROVE_OPTION];
 
 /**
- * Every tool name that counts as *the* Walkie enrollment tool.
+ * Every tool name that counts as *the* Collabcast enrollment tool.
  *
  * Built by generation rather than by parsing, because MCP server names may themselves
- * contain `_`: parsing `mcp__evil_walkie_enroll` is ambiguous (server `evil` + tool
- * `walkie_enroll`, or server `evil_walkie` + tool `enroll`), while generation is exact.
+ * contain `_`: parsing `mcp__evil_collabcast_enroll` is ambiguous (server `evil` + tool
+ * `collabcast_enroll`, or server `evil_collabcast` + tool `enroll`), while generation is exact.
  *
  * @param {string[]} [allowedServers]
  * @returns {Set<string>}
@@ -47,8 +47,8 @@ export function expectedToolNames(allowedServers = DEFAULT_ALLOWED_SERVERS) {
 
 /**
  * True when a tool name looks like an enrollment call regardless of provenance.
- * Suffix match only: a name that merely *contains* `walkie_enroll` mid-string
- * (e.g. `walkie_enroll_status`) is a different tool and is left alone.
+ * Suffix match only: a name that merely *contains* `collabcast_enroll` mid-string
+ * (e.g. `collabcast_enroll_status`) is a different tool and is left alone.
  *
  * @param {string} toolName
  */
@@ -86,7 +86,7 @@ const BLOCK_FOREIGN = {
   action: 'block',
   code: 'forbidden',
   reason:
-    'walkie [forbidden]: enrollment tool offered by an unrecognised MCP server; ' +
+    'collabcast [forbidden]: enrollment tool offered by an unrecognised MCP server; ' +
     'add the server to the hook allowlist if this is intentional'
 };
 
@@ -94,14 +94,14 @@ const BLOCK_NO_UI = {
   action: 'block',
   code: 'forbidden',
   reason:
-    'walkie [forbidden]: enrollment needs an interactive operator confirmation; ' +
+    'collabcast [forbidden]: enrollment needs an interactive operator confirmation; ' +
     'a non-interactive session must receive a delegated capability from the root instead'
 };
 
 const BLOCK_DENIED = {
   action: 'block',
   code: 'forbidden',
-  reason: 'walkie [forbidden]: operator did not approve the enrollment request'
+  reason: 'collabcast [forbidden]: operator did not approve the enrollment request'
 };
 
 /**

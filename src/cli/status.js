@@ -1,13 +1,13 @@
 import { statusDaemon } from '../daemon/lifecycle.js';
 import { loadIdentities } from '../identity/identities.js';
-import { walkieError } from '../identity/errors.js';
+import { collabcastError } from '../identity/errors.js';
 import { contextForProject } from './client.js';
 
 /**
  * Local service status.
  *
  * Refuses in managed mode: lifecycle there belongs to Paseo, and a client reporting on a
- * process it does not own invites the operator to act on it. `walkie whoami` is the
+ * process it does not own invites the operator to act on it. `collabcast whoami` is the
  * managed-mode question — it proves the service is answering and says with what authority.
  *
  * `--all` enumerates registered namespaces from the host identity map rather than a
@@ -18,7 +18,7 @@ export async function statusCommand(opts = {}) {
     const map = loadIdentities();
     const entries = Object.values(map.identities);
     if (!entries.length) {
-      process.stdout.write('No walkie namespaces are registered on this host.\n');
+      process.stdout.write('No collabcast namespaces are registered on this host.\n');
       return;
     }
     for (const entry of entries) {
@@ -40,10 +40,10 @@ export async function statusCommand(opts = {}) {
 
   const context = contextForProject();
   if (context.mode === 'managed') {
-    throw walkieError(
+    throw collabcastError(
       'forbidden',
-      `namespace "${context.namespace}" is managed: its walkie service lifecycle belongs to ` +
-        'Paseo, so this command does not report on it. Use `walkie whoami` to confirm the ' +
+      `namespace "${context.namespace}" is managed: its collabcast service lifecycle belongs to ` +
+        'Paseo, so this command does not report on it. Use `collabcast whoami` to confirm the ' +
         'service is answering and what authority you hold.',
       { namespace: context.namespace, mode: context.mode }
     );
@@ -55,7 +55,7 @@ export async function statusCommand(opts = {}) {
   });
   if (!status.running) {
     process.stdout.write(
-      `Service for ${status.namespace} is not answering (${status.reason}). Run \`walkie start\`.\n`
+      `Service for ${status.namespace} is not answering (${status.reason}). Run \`collabcast start\`.\n`
     );
     return;
   }

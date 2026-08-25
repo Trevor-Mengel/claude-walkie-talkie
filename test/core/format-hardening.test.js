@@ -227,14 +227,14 @@ describe('git provenance round-trip (fix 5)', () => {
       expect(parseMessage(block).fromSessionId).toBe('cs_abc123');
     });
 
-    // The clause this line used to carry — "run `walkie history <id>`" — named a command
+    // The clause this line used to carry — "run `collabcast history <id>`" — named a command
     // that does not exist, and it is PERSISTED into the operator's channel document once
     // per edit. Point at the route that actually serves revisions or say nothing.
     test('the edited line advertises only a route that exists', () => {
       const block = formatMessage(msg({ revision: 2, editedAt: '2026-05-14T16:00:00.000Z' }));
       expect(block).toContain(`**Edited:** revision 2 at 2026-05-14T16:00:00.000Z`);
       expect(block).toContain(`\`GET /channel/message/${ID}\``);
-      expect(block).not.toContain('walkie history');
+      expect(block).not.toContain('collabcast history');
     });
   });
 });

@@ -21,7 +21,7 @@ import { verifyPathExcluded } from '../../src/config/load.js';
 
 /** A repo with a committed file under `sub/` and an ignored sibling. */
 function makeRepo(branch, who) {
-  const root = tmpRoot('walkie-gitdisc-');
+  const root = tmpRoot('collabcast-gitdisc-');
   git(['init', '-q', '-b', branch], root);
   git(['config', 'user.name', who], root);
   git(['config', 'user.email', `${who.toLowerCase()}@example.invalid`], root);

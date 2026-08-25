@@ -6,27 +6,29 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEFAULT_CONFIG } from '../../src/config/schema.js';
 import { readHealth, startDaemon, statusDaemon, stopDaemon } from '../../src/daemon/lifecycle.js';
-import { WALKIE_SOCKET_FILENAME, PID_FILENAME } from '../../src/daemon/transport.js';
+import { COLLABCAST_SOCKET_FILENAME, PID_FILENAME } from '../../src/daemon/transport.js';
 import {
+  OPERATOR_CREDENTIAL_FILENAME,
   SECRET_FILENAME,
+  SERVICE_STDERR_FILENAME,
   SOCKET_FILENAME as AUTHORITY_SOCKET_FILENAME
 } from '../../src/authority/index.js';
 import { createRegisteredNamespace } from '../helpers/registered-namespace.js';
 import { isolatedEnv } from '../helpers/isolation.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
-const NAMESPACE = 'walkie-talkie';
+const NAMESPACE = 'collabcast';
 
 let base;
 let runtimeRoot;
 let socketPath;
 let pidPath;
 const children = [];
-/** Pids of real detached `walkie-svc` processes, so a failed assertion cannot leak one. */
+/** Pids of real detached `collabcast-svc` processes, so a failed assertion cannot leak one. */
 const detached = [];
 
 function config({ mode = 'standalone' } = {}) {
@@ -105,7 +107,7 @@ beforeEach(() => {
   base = createFixtureDir('wk-lc-');
   runtimeRoot = join(base, 'run');
   mkdirSync(runtimeRoot, { recursive: true, mode: 0o700 });
-  socketPath = join(runtimeRoot, WALKIE_SOCKET_FILENAME);
+  socketPath = join(runtimeRoot, COLLABCAST_SOCKET_FILENAME);
   pidPath = join(runtimeRoot, PID_FILENAME);
 });
 
@@ -192,7 +194,7 @@ describe('startDaemon', () => {
     expect(thrown.code).toBe('forbidden');
     expect(thrown.message).toMatch(/managed/);
     expect(thrown.message).toMatch(/Paseo/);
-    expect(thrown.message).toMatch(/walkie-svc/);
+    expect(thrown.message).toMatch(/collabcast-svc/);
     expect(thrown.message).toMatch(/standalone/);
     // Nothing was spawned and nothing was written.
     expect(existsSync(socketPath)).toBe(false);
@@ -296,22 +298,22 @@ describe('stopDaemon', () => {
 });
 
 // Everything above uses a stand-in listener, because lifecycle's job is the pid/namespace
-// predicate rather than the service. This one spawns the REAL `walkie-svc`, which is the only
-// place in the suite where `walkie start` is exercised end to end — including the two artifacts
+// predicate rather than the service. This one spawns the REAL `collabcast-svc`, which is the only
+// place in the suite where `collabcast start` is exercised end to end — including the two artifacts
 // the OMP hook needs, which a stand-in cannot produce.
 describe('startDaemon spawning the real service', () => {
   it('brings up the authority socket and the hook secret, and stopDaemon takes them away', async () => {
-    const ns = createRegisteredNamespace({ namespace: 'walkie-lc-real', mode: 'standalone' });
+    const ns = createRegisteredNamespace({ namespace: 'collabcast-lc-real', mode: 'standalone' });
     const opts = {
       canonicalRoot: ns.canonicalRoot,
       namespace: ns.namespace,
       runtimeRoot: ns.runtimeRoot,
       config: { ...DEFAULT_CONFIG, namespace: ns.namespace, mode: 'standalone' },
       env: isolatedEnv({
-        WALKIE_IDENTITIES: ns.identitiesPath,
-        WALKIE_RUNTIME_ROOT: ns.runtimeRoot,
-        WALKIE_CAPABILITY: undefined,
-        WALKIE_NAMESPACE: undefined
+        COLLABCAST_IDENTITIES: ns.identitiesPath,
+        COLLABCAST_RUNTIME_ROOT: ns.runtimeRoot,
+        COLLABCAST_CAPABILITY: undefined,
+        COLLABCAST_NAMESPACE: undefined
       })
     };
 
@@ -338,5 +340,47 @@ describe('startDaemon spawning the real service', () => {
     expect(existsSync(authoritySocket)).toBe(false);
     // The secret is operator wiring, not per-boot state.
     expect(existsSync(secretFile)).toBe(true);
+  });
+
+  it('quotes the refusal the service wrote instead of a bare timeout', async () => {
+    // `stdio: 'ignore'` sent every operator-facing boot refusal to /dev/null, so a one-line fix
+    // (a wedged `hook.secret`, a revoked `operator.cred`) reached the operator as
+    // `did not begin answering within the startup window` ten seconds later, with nothing in it
+    // to act on. The service's stderr is kept now, and a failed start reads it back.
+    const ns = createRegisteredNamespace({ namespace: 'collabcast-lc-diag', mode: 'standalone' });
+    const opts = {
+      canonicalRoot: ns.canonicalRoot,
+      namespace: ns.namespace,
+      runtimeRoot: ns.runtimeRoot,
+      config: { ...DEFAULT_CONFIG, namespace: ns.namespace, mode: 'standalone' },
+      env: isolatedEnv({
+        COLLABCAST_IDENTITIES: ns.identitiesPath,
+        COLLABCAST_RUNTIME_ROOT: ns.runtimeRoot,
+        COLLABCAST_CAPABILITY: undefined,
+        COLLABCAST_NAMESPACE: undefined
+      })
+    };
+    // An operator credential the service will refuse, which is a deterministic boot failure.
+    const credentialPath = join(ns.runtimeRoot, OPERATOR_CREDENTIAL_FILENAME);
+    writeFileSync(credentialPath, '[]\n', { mode: 0o600 });
+
+    const started = Date.now();
+    let thrown;
+    try {
+      await startDaemon(opts);
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(thrown).toBeDefined();
+    expect(thrown.message).toContain(credentialPath);
+    expect(thrown.message).toMatch(/could not be parsed/);
+    expect(thrown.detail.exited).toBe(true);
+    // A service that has already exited will never answer, so the full window is not waited out.
+    expect(Date.now() - started).toBeLessThan(5000);
+    // The diagnostic outlives the failed start, so the operator can still go and read it.
+    expect(readFileSync(join(ns.runtimeRoot, SERVICE_STDERR_FILENAME), 'utf8')).toContain(
+      credentialPath
+    );
   });
 });

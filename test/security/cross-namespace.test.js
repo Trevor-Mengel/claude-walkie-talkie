@@ -66,15 +66,15 @@ const stores = [];
  * fence 2 above exists for.
  */
 function boot(namespace, { serverNamespace = namespace } = {}) {
-  const root = createFixtureDir('walkie-xns-');
+  const root = createFixtureDir('collabcast-xns-');
   roots.push(root);
-  const wtDir = join(root, '.walkie-talkie');
+  const wtDir = join(root, '.collabcast');
   mkdirSync(join(wtDir, '.sessions'), { recursive: true });
   const channelPath = join(wtDir, 'channel.md');
   writeFileSync(
     channelPath,
     [
-      `# Walkie-Talkie Channel: ${namespace}`,
+      `# Collabcast Channel: ${namespace}`,
       '',
       '**Operator:** Cross Namespace Tests',
       '',
@@ -86,7 +86,7 @@ function boot(namespace, { serverNamespace = namespace } = {}) {
     'utf8'
   );
 
-  const store = openStore({ path: join(wtDir, 'store', 'walkie.db'), namespace });
+  const store = openStore({ path: join(wtDir, 'store', 'collabcast.db'), namespace });
   stores.push(store);
   const config = validateConfig(
     { schemaVersion: 3, namespace, mode: 'standalone' },
@@ -304,7 +304,7 @@ describe('security: a capability is inert outside its own namespace', () => {
     // A store file is pinned to its namespace, so the two can never be merged by
     // pointing one at the other's file.
     expect(() =>
-      openStore({ path: join(alpha.root, '.walkie-talkie/store/walkie.db'), namespace: beta.namespace })
+      openStore({ path: join(alpha.root, '.collabcast/store/collabcast.db'), namespace: beta.namespace })
     ).toThrow(/different namespace/i);
 
     // The principals are unknown to each other by id, so a leaked id is not a

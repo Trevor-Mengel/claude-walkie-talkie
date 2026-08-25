@@ -1,4 +1,4 @@
-// `walkie inbox`, driven as a real subprocess against a real service.
+// `collabcast inbox`, driven as a real subprocess against a real service.
 //
 // The two v0.2 properties are preserved: `--format=json` reports an empty queue when there is no
 // traffic, and the default `context` format prints a hook-friendly preamble containing the
@@ -12,7 +12,7 @@
 //     namespace's Unix socket with the operator credential.
 //
 // And the property v0.2 had no way to state, because its inbox route consumed the read cursor:
-// printing the inbox acknowledges NOTHING. A hook runs `walkie inbox` on every prompt; if that
+// printing the inbox acknowledges NOTHING. A hook runs `collabcast inbox` on every prompt; if that
 // advanced a cursor, the operator's queue would be drained by their own tooling.
 
 import { describe, test, expect } from 'vitest';
@@ -21,10 +21,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStack } from '../helpers/stack.js';
 
-const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'walkie.js');
+const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'collabcast.js');
 
 /** Run the CLI and resolve with its outcome, never throwing on a non-zero exit. */
-function walkie(args, { cwd, env }) {
+function collabcast(args, { cwd, env }) {
   return new Promise((resolve) => {
     execFile(process.execPath, [CLI, ...args], { cwd, env, encoding: 'utf8' }, (err, stdout, stderr) => {
       resolve({ code: err?.code ?? 0, stdout, stderr });
@@ -38,7 +38,7 @@ async function harness(namespace, opts = {}) {
   stack.writeCredential('operator');
   return {
     stack,
-    run: (args) => walkie(args, { cwd: stack.canonicalRoot, env: stack.childEnv() })
+    run: (args) => collabcast(args, { cwd: stack.canonicalRoot, env: stack.childEnv() })
   };
 }
 
@@ -53,9 +53,9 @@ async function postAsRoot(stack, body, type) {
   return res.body.id;
 }
 
-describe('walkie inbox', () => {
+describe('collabcast inbox', () => {
   test('--format=json returns empty messages when no traffic', async () => {
-    const { run } = await harness('walkie-cliinbox1');
+    const { run } = await harness('collabcast-cliinbox1');
     const { code, stdout, stderr } = await run(['inbox', '--format=json']);
     expect(stderr).toBe('');
     expect(code).toBe(0);
@@ -74,16 +74,16 @@ describe('walkie inbox', () => {
   }, 20000);
 
   test('--format=context prints a hookable preamble', async () => {
-    const { stack, run } = await harness('walkie-cliinbox2');
+    const { stack, run } = await harness('collabcast-cliinbox2');
     await postAsRoot(stack, 'hello hooks');
 
     const { code, stdout } = await run(['inbox', '--format=context']);
     expect(code).toBe(0);
-    expect(stdout).toMatch(/walkie-talkie inbox/i);
+    expect(stdout).toMatch(/collabcast inbox/i);
     expect(stdout).toMatch(/hello hooks/);
     // The preamble names the explicit follow-up rather than implying the read did it,
     // and names the id of the last message shown rather than the current cursor.
-    expect(stdout).toMatch(/walkie ack 0[0-9A-HJKMNP-TV-Z]{25}/);
+    expect(stdout).toMatch(/collabcast ack 0[0-9A-HJKMNP-TV-Z]{25}/);
   }, 20000);
 
   // The reachability half of the S1 fix. A server-side flag no CLI can set would be a fix
@@ -91,7 +91,7 @@ describe('walkie inbox', () => {
   // default, still there after an ordinary ack, and the printed hint carries the flag so
   // following it lands on the right view's mark rather than the other one.
   test('--include-memory-updates is its own view with its own cursor', async () => {
-    const { stack, run } = await harness('walkie-cliinbox4');
+    const { stack, run } = await harness('collabcast-cliinbox4');
     const one = await postAsRoot(stack, 'one');
     const noted = await postAsRoot(stack, 'remember this', 'memory-update');
     const three = await postAsRoot(stack, 'three');
@@ -118,7 +118,7 @@ describe('walkie inbox', () => {
     // The hint has to carry the flag: without it the operator would ack the default view
     // again and the memory-updates just printed would stay unacknowledged forever.
     const hint = await run(['inbox', '--include-memory-updates']);
-    expect(hint.stdout).toContain(`walkie ack ${three} --include-memory-updates`);
+    expect(hint.stdout).toContain(`collabcast ack ${three} --include-memory-updates`);
 
     await run(['ack', three, '--include-memory-updates']);
     expect(
@@ -127,7 +127,7 @@ describe('walkie inbox', () => {
   }, 30000);
 
   test('printing the inbox acknowledges nothing: two runs are identical', async () => {
-    const { stack, run } = await harness('walkie-cliinbox3');
+    const { stack, run } = await harness('collabcast-cliinbox3');
     await postAsRoot(stack, 'first');
     await postAsRoot(stack, 'second');
     const operatorId = stack.principals.operator.principalId;
@@ -146,7 +146,7 @@ describe('walkie inbox', () => {
     expect(third.stdout).toMatch(/2 message\(s\)/);
     expect(stack.cursors(operatorId)).toEqual({ read: '', ack: '' });
 
-    // `walkie ack` is the only thing that moves it.
+    // `collabcast ack` is the only thing that moves it.
     const second_ = JSON.parse(second.stdout).messages[1].id;
     const acked = await run(['ack', second_]);
     expect(acked.code).toBe(0);
@@ -160,7 +160,7 @@ describe('walkie inbox', () => {
   }, 25000);
 
   test('--limit caps what is printed without changing what is acknowledged', async () => {
-    const { stack, run } = await harness('walkie-cliinbox4');
+    const { stack, run } = await harness('collabcast-cliinbox4');
     for (const body of ['a', 'b', 'c']) await postAsRoot(stack, body);
 
     const { code, stdout } = await run(['inbox', '--format=json', '--limit', '2']);
@@ -173,14 +173,14 @@ describe('walkie inbox', () => {
   }, 20000);
 
   test('without an operator credential the CLI refuses cleanly instead of reading anonymously', async () => {
-    const stack = await createStack({ namespace: 'walkie-cliinbox5', roles: ['root'] });
-    const { code, stdout, stderr } = await walkie(['inbox', '--format=json'], {
+    const stack = await createStack({ namespace: 'collabcast-cliinbox5', roles: ['root'] });
+    const { code, stdout, stderr } = await collabcast(['inbox', '--format=json'], {
       cwd: stack.canonicalRoot,
       env: stack.childEnv()
     });
     expect(code).toBe(2);
     expect(stdout).toBe('');
-    expect(stderr).toMatch(/^walkie \[/);
+    expect(stderr).toMatch(/^collabcast \[/);
     // One line for a human, never a stack trace.
     expect(stderr).not.toMatch(/^\s+at /m);
   }, 20000);

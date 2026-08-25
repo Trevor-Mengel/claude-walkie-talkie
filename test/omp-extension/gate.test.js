@@ -14,7 +14,7 @@ import {
 
 describe('gate: tool-name classification', () => {
   test('the MCP-namespaced name from an allowlisted server is the enrollment tool', () => {
-    expect(classifyToolName('mcp__walkie-talkie_walkie_enroll')).toBe('enroll');
+    expect(classifyToolName('mcp__collabcast_collabcast_enroll')).toBe('enroll');
   });
 
   test('the bare name is the enrollment tool (non-MCP invocation)', () => {
@@ -22,18 +22,18 @@ describe('gate: tool-name classification', () => {
   });
 
   test('an enrollment-shaped name from a non-allowlisted server is foreign, not passed', () => {
-    expect(classifyToolName('mcp__evil_walkie_enroll')).toBe('foreign');
-    expect(classifyToolName('mcp__walkie-talkie-evil_walkie_enroll')).toBe('foreign');
-    expect(classifyToolName('spoofed-walkie_enroll')).toBe('foreign');
+    expect(classifyToolName('mcp__evil_collabcast_enroll')).toBe('foreign');
+    expect(classifyToolName('mcp__collabcast-evil_collabcast_enroll')).toBe('foreign');
+    expect(classifyToolName('spoofed-collabcast_enroll')).toBe('foreign');
   });
 
-  test('a name that merely contains walkie_enroll mid-string is a different tool', () => {
-    expect(classifyToolName('walkie_enroll_status')).toBe('unrelated');
-    expect(classifyToolName('mcp__walkie-talkie_walkie_enroll_status')).toBe('unrelated');
+  test('a name that merely contains collabcast_enroll mid-string is a different tool', () => {
+    expect(classifyToolName('collabcast_enroll_status')).toBe('unrelated');
+    expect(classifyToolName('mcp__collabcast_collabcast_enroll_status')).toBe('unrelated');
   });
 
   test('unrelated tools are unrelated', () => {
-    for (const name of ['read', 'bash', 'walkie_talk', 'mcp__walkie-talkie_walkie_talk']) {
+    for (const name of ['read', 'bash', 'collabcast_talk', 'mcp__collabcast_collabcast_talk']) {
       expect(classifyToolName(name)).toBe('unrelated');
     }
   });
@@ -45,19 +45,19 @@ describe('gate: tool-name classification', () => {
   });
 
   test('the allowlist is honoured and generated exactly, not parsed', () => {
-    expect(classifyToolName('mcp__evil_walkie_enroll', ['evil'])).toBe('enroll');
-    expect(classifyToolName('mcp__walkie-talkie_walkie_enroll', ['evil'])).toBe('foreign');
+    expect(classifyToolName('mcp__evil_collabcast_enroll', ['evil'])).toBe('enroll');
+    expect(classifyToolName('mcp__collabcast_collabcast_enroll', ['evil'])).toBe('foreign');
     // A server name containing '_' is unambiguous under generation.
-    expect(classifyToolName('mcp__evil_walkie_walkie_enroll', ['evil_walkie'])).toBe('enroll');
-    expect(classifyToolName('mcp__evil_walkie_enroll', ['evil_walkie'])).toBe('foreign');
+    expect(classifyToolName('mcp__evil_collabcast_collabcast_enroll', ['evil_collabcast'])).toBe('enroll');
+    expect(classifyToolName('mcp__evil_collabcast_enroll', ['evil_collabcast'])).toBe('foreign');
   });
 
   test('expectedToolNames covers the bare name plus one per allowlisted server', () => {
     expect(expectedToolNames(['a', 'b'])).toEqual(
-      new Set([ENROLL_TOOL, 'mcp__a_walkie_enroll', 'mcp__b_walkie_enroll'])
+      new Set([ENROLL_TOOL, 'mcp__a_collabcast_enroll', 'mcp__b_collabcast_enroll'])
     );
     expect(expectedToolNames()).toEqual(
-      new Set([ENROLL_TOOL, 'mcp__walkie-talkie_walkie_enroll'])
+      new Set([ENROLL_TOOL, 'mcp__collabcast_collabcast_enroll'])
     );
     // Junk entries are dropped rather than widening the match surface.
     expect(expectedToolNames(['', '  ', null, 7])).toEqual(new Set([ENROLL_TOOL]));
@@ -67,7 +67,7 @@ describe('gate: tool-name classification', () => {
   test('Deny is first so it is the pre-selected default', () => {
     expect(SELECT_OPTIONS).toEqual([DENY_OPTION, APPROVE_OPTION]);
     expect(SELECT_OPTIONS[0]).toBe('Deny');
-    expect(DEFAULT_ALLOWED_SERVERS).toEqual(['walkie-talkie']);
+    expect(DEFAULT_ALLOWED_SERVERS).toEqual(['collabcast']);
   });
 });
 
@@ -98,7 +98,7 @@ describe('gate: gateStage', () => {
   });
 
   test('foreign server blocks even with a UI', () => {
-    const verdict = gateStage({ toolName: 'mcp__evil_walkie_enroll', hasUI: true });
+    const verdict = gateStage({ toolName: 'mcp__evil_collabcast_enroll', hasUI: true });
     expect(verdict.action).toBe('block');
     expect(verdict.reason).toMatch(/unrecognised MCP server/);
   });
@@ -116,8 +116,8 @@ describe('gate: gateStage', () => {
  * @param {{ toolName: unknown, hasUI: unknown, selection: unknown }} input
  */
 function expectedAction({ toolName, hasUI, selection }) {
-  const allowed = ['walkie_enroll', 'mcp__walkie-talkie_walkie_enroll'];
-  const shaped = typeof toolName === 'string' && toolName.endsWith('walkie_enroll');
+  const allowed = ['collabcast_enroll', 'mcp__collabcast_collabcast_enroll'];
+  const shaped = typeof toolName === 'string' && toolName.endsWith('collabcast_enroll');
   if (!shaped) return 'pass';
   if (!allowed.includes(toolName)) return 'block';
   if (!hasUI) return 'block';
@@ -132,11 +132,11 @@ function expectedAction({ toolName, hasUI, selection }) {
 
 describe('gate: decide truth table', () => {
   const toolNames = [
-    'mcp__walkie-talkie_walkie_enroll',
-    'walkie_enroll',
-    'mcp__evil_walkie_enroll',
-    'spoofed-walkie_enroll',
-    'walkie_enroll_status',
+    'mcp__collabcast_collabcast_enroll',
+    'collabcast_enroll',
+    'mcp__evil_collabcast_enroll',
+    'spoofed-collabcast_enroll',
+    'collabcast_enroll_status',
     'read',
     '',
     undefined
@@ -185,7 +185,7 @@ describe('gate: decide truth table', () => {
   });
 
   test('blocked verdicts never leak a secret-looking payload into the reason', () => {
-    const verdict = decide({ toolName: 'mcp__evil_walkie_enroll', hasUI: true, selection: 'x' });
+    const verdict = decide({ toolName: 'mcp__evil_collabcast_enroll', hasUI: true, selection: 'x' });
     expect(verdict.reason).not.toMatch(/secret|token|sock/i);
   });
 });

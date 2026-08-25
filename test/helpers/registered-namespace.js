@@ -1,7 +1,7 @@
 // A throw-away namespace that is actually registered, so the client-side resolution path
 // (identity map -> config -> transport paths) runs for real in a test.
 //
-// The host identity map is NOT the harness's shared `WALKIE_IDENTITIES` file: every namespace
+// The host identity map is NOT the harness's shared `COLLABCAST_IDENTITIES` file: every namespace
 // created here writes its own map inside its own temp tree and hands back an `env` that points
 // at it. Test workers therefore never mutate a file another worker is reading.
 
@@ -22,7 +22,7 @@ import { createFixtureDir } from './fixture-leaks.js';
  * @param {boolean} [opts.autoCleanup]
  */
 export function createRegisteredNamespace({
-  namespace = 'walkie-test',
+  namespace = 'collabcast-test',
   mode = 'managed',
   config = {},
   env: extraEnv = {},
@@ -33,15 +33,15 @@ export function createRegisteredNamespace({
   assertDisposable(base, 'registered namespace base');
   const canonicalRoot = join(base, 'p');
   const runtimeRoot = join(base, 'r');
-  const walkieDir = join(canonicalRoot, '.walkie-talkie');
-  mkdirSync(walkieDir, { recursive: true });
+  const collabcastDir = join(canonicalRoot, '.collabcast');
+  mkdirSync(collabcastDir, { recursive: true });
   mkdirSync(runtimeRoot, { recursive: true, mode: 0o700 });
 
   writeFileSync(
-    join(walkieDir, 'config.json'),
+    join(collabcastDir, 'config.json'),
     `${JSON.stringify({ schemaVersion: CONFIG_SCHEMA_VERSION, namespace, mode, ...config }, null, 2)}\n`
   );
-  writeFileSync(join(walkieDir, 'channel.md'), '# channel\n');
+  writeFileSync(join(collabcastDir, 'channel.md'), '# channel\n');
 
   const identitiesPath = join(base, 'identities.json');
   writeFileSync(
@@ -59,14 +59,14 @@ export function createRegisteredNamespace({
 
   const env = {
     ...process.env,
-    WALKIE_IDENTITIES: identitiesPath,
-    WALKIE_PROJECT_ROOT: canonicalRoot,
-    WALKIE_RUNTIME_ROOT: runtimeRoot,
+    COLLABCAST_IDENTITIES: identitiesPath,
+    COLLABCAST_PROJECT_ROOT: canonicalRoot,
+    COLLABCAST_RUNTIME_ROOT: runtimeRoot,
     ...extraEnv
   };
   // A capability injected into the ambient environment would silently authenticate every test.
-  if (extraEnv.WALKIE_CAPABILITY === undefined) delete env.WALKIE_CAPABILITY;
-  if (extraEnv.WALKIE_NAMESPACE === undefined) delete env.WALKIE_NAMESPACE;
+  if (extraEnv.COLLABCAST_CAPABILITY === undefined) delete env.COLLABCAST_CAPABILITY;
+  if (extraEnv.COLLABCAST_NAMESPACE === undefined) delete env.COLLABCAST_NAMESPACE;
 
   const handle = {
     base,
@@ -74,9 +74,9 @@ export function createRegisteredNamespace({
     mode,
     canonicalRoot,
     runtimeRoot,
-    walkieDir,
+    collabcastDir,
     identitiesPath,
-    socketPath: join(runtimeRoot, 'walkie.sock'),
+    socketPath: join(runtimeRoot, 'collabcast.sock'),
     operatorCredPath: join(runtimeRoot, 'operator.cred'),
     env,
     /** Write an operator credential (bare token or the enrollment document) at 0600. */

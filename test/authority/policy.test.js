@@ -11,6 +11,7 @@ import {
   scopesForRole
 } from '../../src/authority/policy.js';
 import { SCOPES } from '../../src/store/capabilities.js';
+import { DELEGABLE_ROLES } from '../../src/cli/enroll.js';
 import { ROLES } from '../../src/store/principals.js';
 import { NAMESPACE } from './helpers.js';
 
@@ -49,18 +50,33 @@ describe('policy shape', () => {
     }
   });
 
-  test('root cannot reach destructive authority through a dialog', () => {
+  test('root cannot reach destructive authority through a dialog; the operator can', () => {
     // permit:administer and retention:approve are operator-CLI territory. An
     // agent-initiated dialog must never be one click from destroying history.
     expect(ROLE_SCOPES.root).not.toContain('permit:administer');
     expect(ROLE_SCOPES.root).not.toContain('retention:approve');
+    // "Reached through an operator CLI attestation" is now a named allowlist rather than a
+    // comment: the operator credential is the attestation, and it holds every store scope.
+    expect([...ROLE_SCOPES.operator].sort()).toEqual([...SCOPES].sort());
+  });
+
+  test('the operator allowlist is not enrollable and not delegable', () => {
+    // It is minted by the service for the uid that owns the runtime directory, never by a
+    // dialog and never by a delegation, so no widening follows from it existing.
+    expect(ENROLLABLE_ROLES).not.toContain('operator');
+    expect(DELEGABLE_ROLES).not.toContain('operator');
   });
 
   test('scopesForRole hands back a copy, not the frozen source', () => {
     const scopes = scopesForRole('root');
     scopes.push('permit:administer');
     expect(ROLE_SCOPES.root).not.toContain('permit:administer');
-    expect(() => scopesForRole('operator')).toThrowError(/allowlist/);
+
+    const operatorScopes = scopesForRole('operator');
+    operatorScopes.pop();
+    expect(scopesForRole('operator')).toHaveLength(SCOPES.length);
+
+    expect(() => scopesForRole('legacy')).toThrowError(/allowlist/);
   });
 });
 

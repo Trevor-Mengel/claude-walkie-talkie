@@ -1,14 +1,14 @@
-// `.walkie-talkie/` must never be under version control.
+// `.collabcast/` must never be under version control.
 //
 // `channel.md` is the document every agent reads into its context, and the daemon's watcher
 // treats an external edit to it as a supported input. So a project that COMMITS the directory
 // ships whatever the file contains — including a forged message block — to every clone, and
-// `.sessions/` (where `appendRevision` writes on every message edit) means walkie mutates
+// `.sessions/` (where `appendRevision` writes on every message edit) means collabcast mutates
 // version-controlled files during normal use.
 //
 // Three defences, tested here end to end:
 //
-//   1. `walkie init` writes a `.gitignore` rule, idempotently and without clobbering.
+//   1. `collabcast init` writes a `.gitignore` rule, idempotently and without clobbering.
 //   2. `verifyPathExcluded` refuses to guess when git cannot answer. It used to read ANY
 //      non-zero `rev-parse` exit as "not a repository", so a corrupt `.git`, a poisoned
 //      `GIT_DIR` or a dubious-ownership checkout declared a TRACKED path safe.
@@ -31,12 +31,12 @@ import { assertDisposable } from '../helpers/isolation.js';
 import { GIT_ENV, git } from '../identity/tmp-git.js';
 import { createFixtureDir } from '../helpers/fixture-leaks.js';
 
-const BIN = join(dirname(fileURLToPath(import.meta.url)), '../../bin/walkie.js');
+const BIN = join(dirname(fileURLToPath(import.meta.url)), '../../bin/collabcast.js');
 
 let base;
 
 beforeEach(() => {
-  base = realpathSync(createFixtureDir('walkie-excl-'));
+  base = realpathSync(createFixtureDir('collabcast-excl-'));
   assertDisposable(base, 'exclusion scratch dir');
 });
 
@@ -44,7 +44,7 @@ afterEach(() => {
   rmSync(base, { recursive: true, force: true });
 });
 
-/** A project directory plus a private identity map, so `walkie init` can run for real. */
+/** A project directory plus a private identity map, so `collabcast init` can run for real. */
 function project(name) {
   const dir = join(base, name);
   mkdirSync(dir, { recursive: true });
@@ -56,18 +56,18 @@ function project(name) {
       execFileSync(process.execPath, [BIN, 'init', '--operator', 'Excl Op', ...args], {
         cwd: dir,
         encoding: 'utf8',
-        env: { ...process.env, ...GIT_ENV, WALKIE_IDENTITIES: join(base, `${name}-ids.json`) }
+        env: { ...process.env, ...GIT_ENV, COLLABCAST_IDENTITIES: join(base, `${name}-ids.json`) }
       })
   };
 }
 
-/** Count of lines that ignore `.walkie-talkie`, however spelled. */
+/** Count of lines that ignore `.collabcast`, however spelled. */
 function ignoreRuleCount(text) {
-  return text.split('\n').filter((line) => line.trim().replace(/\/+$/, '') === '.walkie-talkie')
+  return text.split('\n').filter((line) => line.trim().replace(/\/+$/, '') === '.collabcast')
     .length;
 }
 
-describe('walkie init makes .walkie-talkie/ git-ignored', () => {
+describe('collabcast init makes .collabcast/ git-ignored', () => {
   test('creates a .gitignore with the rule when none exists', () => {
     const p = project('fresh');
     expect(existsSync(p.gitignorePath)).toBe(false);
@@ -107,15 +107,15 @@ describe('walkie init makes .walkie-talkie/ git-ignored', () => {
 
     const lines = p.gitignore().split('\n');
     expect(lines).toContain('dist');
-    expect(lines).toContain('.walkie-talkie/');
+    expect(lines).toContain('.collabcast/');
     expect(ignoreRuleCount(p.gitignore())).toBe(1);
   });
 
   test('an equivalent rule the operator already wrote is left alone', () => {
     const p = project('equivalent');
-    writeFileSync(p.gitignorePath, '/.walkie-talkie\n', 'utf8');
+    writeFileSync(p.gitignorePath, '/.collabcast\n', 'utf8');
     p.run();
-    expect(p.gitignore()).toBe('/.walkie-talkie\n');
+    expect(p.gitignore()).toBe('/.collabcast\n');
   });
 });
 
@@ -159,12 +159,12 @@ describe('verifyPathExcluded refuses to guess when git cannot answer', () => {
 
 describe('assertChannelStateExcluded', () => {
   /**
-   * A project with a real `.walkie-talkie/` inside a real repo.
+   * A project with a real `.collabcast/` inside a real repo.
    * @param {{gitignore?:string, track?:string[]}} opts
    */
   function scaffold(name, { gitignore, track = [] } = {}) {
     const root = join(base, name);
-    const wt = join(root, '.walkie-talkie');
+    const wt = join(root, '.collabcast');
     mkdirSync(join(wt, '.sessions'), { recursive: true });
     writeFileSync(join(wt, 'channel.md'), '# channel\n');
     writeFileSync(join(wt, '.sessions', '01ARZ3.jsonl'), '{}\n');
@@ -190,7 +190,7 @@ describe('assertChannelStateExcluded', () => {
   }
 
   test('passes when both paths are ignored and untracked', () => {
-    const s = scaffold('clean', { gitignore: '.walkie-talkie/\n' });
+    const s = scaffold('clean', { gitignore: '.collabcast/\n' });
     const checked = assertChannelStateExcluded({ ...s.args, env: GIT_ENV });
     expect(checked.map((c) => c.result.reason)).toEqual([
       'ignored-and-untracked',
@@ -212,12 +212,12 @@ describe('assertChannelStateExcluded', () => {
 
   test('refuses to start when only .sessions is tracked, and says which', () => {
     const s = scaffold('tracked-sessions', {
-      gitignore: '.walkie-talkie/\n',
-      track: ['.walkie-talkie/.sessions/01ARZ3.jsonl']
+      gitignore: '.collabcast/\n',
+      track: ['.collabcast/.sessions/01ARZ3.jsonl']
     });
     const err = expectThrow(() => assertChannelStateExcluded({ ...s.args, env: GIT_ENV }));
     expect(err.code).toBe('config_invalid');
-    expect(err.detail.label).toBe('.walkie-talkie/.sessions');
+    expect(err.detail.label).toBe('.collabcast/.sessions');
     expect(err.detail.reason).toBe('tracked');
     expect(err.message).toMatch(/\.sessions is tracked in git/);
   });
@@ -225,7 +225,7 @@ describe('assertChannelStateExcluded', () => {
   test('an untracked but unignored path warns instead of blocking the boot', () => {
     const s = scaffold('not-ignored');
     // Untrack everything so the paths exist but are neither ignored nor tracked.
-    git(['rm', '-r', '-q', '--cached', '.walkie-talkie'], s.root);
+    git(['rm', '-r', '-q', '--cached', '.collabcast'], s.root);
     const warnings = [];
     const checked = assertChannelStateExcluded({
       ...s.args,
@@ -240,7 +240,7 @@ describe('assertChannelStateExcluded', () => {
 
   test('outside a repository there is nothing to check', () => {
     const root = join(base, 'no-repo');
-    mkdirSync(join(root, '.walkie-talkie', '.sessions'), { recursive: true });
+    mkdirSync(join(root, '.collabcast', '.sessions'), { recursive: true });
     const p = channelPaths(root);
     const warnings = [];
     const checked = assertChannelStateExcluded({
@@ -290,11 +290,11 @@ describe('the service refuses to start on tracked channel state', () => {
 
   test('a tracked .sessions directory is refused too', async () => {
     const ns = createRegisteredNamespace({ namespace: 'excl-sessions', mode: 'standalone' });
-    mkdirSync(join(ns.walkieDir, '.sessions'), { recursive: true });
-    writeFileSync(join(ns.walkieDir, '.sessions', '01ARZ3.jsonl'), '{}\n');
+    mkdirSync(join(ns.collabcastDir, '.sessions'), { recursive: true });
+    writeFileSync(join(ns.collabcastDir, '.sessions', '01ARZ3.jsonl'), '{}\n');
     repoize(ns, {
-      gitignore: '.walkie-talkie/\n',
-      track: ['.walkie-talkie/.sessions/01ARZ3.jsonl']
+      gitignore: '.collabcast/\n',
+      track: ['.collabcast/.sessions/01ARZ3.jsonl']
     });
 
     let thrown;
@@ -310,7 +310,7 @@ describe('the service refuses to start on tracked channel state', () => {
 
   test('an ignored-and-untracked channel starts normally', async () => {
     const ns = createRegisteredNamespace({ namespace: 'excl-ignored', mode: 'standalone' });
-    repoize(ns, { gitignore: '.walkie-talkie/\n' });
+    repoize(ns, { gitignore: '.collabcast/\n' });
 
     const service = await boot(ns);
     try {

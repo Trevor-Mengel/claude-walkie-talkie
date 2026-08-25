@@ -3,7 +3,7 @@
 // `POST /delegate` validates only `Number.isInteger(ttlSeconds) && ttlSeconds > 0`, and left
 // the rest to the store. `requireTtl` had no upper bound, so the value flowed through to
 // `plusSeconds`, where `new Date(base + 1e21).toISOString()` threw a bare
-// `RangeError: Invalid time value`. `toWalkie` only translates a thrown value already carrying
+// `RangeError: Invalid time value`. `toCollabcast` only translates a thrown value already carrying
 // a recognised code, so the RangeError fell through to the fixed `internal` body and the client
 // was told `500` — a server fault — for a request it got wrong. On the one route where a caller
 // is minting a credential, that is the difference between "fix your argument" and "the

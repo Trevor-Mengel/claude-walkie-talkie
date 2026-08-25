@@ -9,7 +9,7 @@ import { createPrincipal } from '../../src/store/principals.js';
 import { recordApproval } from '../../src/store/approvals.js';
 import { sha256 } from '../../src/store/digest.js';
 
-export const NAMESPACE = 'walkie-talkie';
+export const NAMESPACE = 'collabcast';
 
 /**
  * Every store this module has handed out and not yet removed. Cleanup is the
@@ -21,9 +21,9 @@ const live = new Set();
 
 /** @returns {{root:string, dir:string, path:string, namespace:string, store:object}} */
 export function createTmpStore({ namespace = NAMESPACE } = {}) {
-  const root = createFixtureDir('walkie-store-');
+  const root = createFixtureDir('collabcast-store-');
   const dir = join(root, 'store');
-  const path = join(dir, 'walkie.db');
+  const path = join(dir, 'collabcast.db');
   const store = openStore({ path, namespace });
   const fixture = { root, dir, path, namespace, store };
   live.add(fixture);

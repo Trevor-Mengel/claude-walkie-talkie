@@ -112,7 +112,7 @@ describe('GET /health', () => {
     expect(serialized).not.toContain('/');
     expect(serialized).not.toContain(fx.root);
     expect(serialized).not.toContain('wtDir');
-    expect(serialized).not.toContain('.walkie-talkie');
+    expect(serialized).not.toContain('.collabcast');
   });
 });
 

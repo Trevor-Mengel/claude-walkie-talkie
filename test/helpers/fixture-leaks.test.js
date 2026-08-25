@@ -46,7 +46,7 @@ describe('fixture leak detection', () => {
   test('detects a leaked fixture under a prefix nothing has ever heard of', () => {
     // Deliberately a prefix no list could have anticipated: the point is that
     // coverage follows from the stamp, not from the name.
-    const leaked = track(createFixtureDir('walkie-brand-new-prefix-'));
+    const leaked = track(createFixtureDir('collabcast-brand-new-prefix-'));
 
     expect(findLeakedFixtureDirs()).toContain(leaked);
 
@@ -57,29 +57,29 @@ describe('fixture leak detection', () => {
   });
 
   test('stamps every fixture it creates, with this run id and owner-only', () => {
-    const dir = track(createFixtureDir('walkie-stamp-probe-'));
-    const marker = join(dir, '.walkie-run');
-    expect(readFileSync(marker, 'utf8').trim()).toBe(process.env.WALKIE_ISOLATION_ROOT);
+    const dir = track(createFixtureDir('collabcast-stamp-probe-'));
+    const marker = join(dir, '.collabcast-run');
+    expect(readFileSync(marker, 'utf8').trim()).toBe(process.env.COLLABCAST_ISOLATION_ROOT);
     expect(statSync(marker).mode & 0o777).toBe(0o600);
   });
 
   test('ignores an unstamped directory: ownership is the stamp, not the name', () => {
     // Same shape as one of ours, no marker — a sibling suite's tree, or a
     // half-removed one. Reporting it would fail our run for someone else's mess.
-    const stranger = bareDir('walkie-store-');
+    const stranger = bareDir('collabcast-store-');
     expect(findLeakedFixtureDirs()).not.toContain(stranger);
   });
 
   test('ignores a directory stamped by a different run', () => {
-    const other = bareDir('walkie-other-run-');
-    markFixtureDir(other, { WALKIE_ISOLATION_ROOT: '/tmp/some-other-agents-run' });
+    const other = bareDir('collabcast-other-run-');
+    markFixtureDir(other, { COLLABCAST_ISOLATION_ROOT: '/tmp/some-other-agents-run' });
     expect(findLeakedFixtureDirs()).not.toContain(other);
   });
 
   test('reports nothing at all when there is no run id to compare against', () => {
-    const dir = track(createFixtureDir('walkie-norunid-'));
+    const dir = track(createFixtureDir('collabcast-norunid-'));
     expect(findLeakedFixtureDirs({})).toEqual([]);
-    expect(existsSync(join(dir, '.walkie-run'))).toBe(true);
+    expect(existsSync(join(dir, '.collabcast-run'))).toBe(true);
   });
 });
 
@@ -166,7 +166,7 @@ describe('the run teardown that consumes this', () => {
       const teardown = await setup();
       // `setup()` re-pointed the isolation env at a fresh disposable tree; the leak
       // it must notice has to be stamped with THAT run id, not this worker's.
-      leaked = track(createFixtureDir('walkie-teardown-probe-'));
+      leaked = track(createFixtureDir('collabcast-teardown-probe-'));
       try {
         await teardown();
       } catch (e) {

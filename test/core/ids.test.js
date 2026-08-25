@@ -85,7 +85,7 @@ describe('newIdAfter never mints below its floor', () => {
 
   // `appendMessage` floors every new id on `highestId(channel.md)`, and that scan accepts
   // any 26-char Crockford token — so a single marker holding the MAXIMUM value reached
-  // `incrementBase32`, which threw a bare `incorrectly encoded string`. Not a WalkieError,
+  // `incrementBase32`, which threw a bare `incorrectly encoded string`. Not a CollabcastError,
   // and `internal` is not a code an operator can act on, so every subsequent post to that
   // channel returned `500 internal` — for every principal, permanently, with nothing
   // naming the cause. `Z` is in the alphabet, so this is a legal id, not a malformed one.

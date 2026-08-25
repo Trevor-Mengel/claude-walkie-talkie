@@ -3,7 +3,7 @@ import { Command, CommanderError } from 'commander';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isWalkieError } from '../identity/errors.js';
+import { isCollabcastError } from '../identity/errors.js';
 import { initCommand } from './init.js';
 import { startCommand } from './start.js';
 import { stopCommand } from './stop.js';
@@ -50,14 +50,14 @@ const DENIED_CODES = new Set([
 
 /** @param {unknown} err @returns {number} */
 export function exitCodeFor(err) {
-  if (!isWalkieError(err)) return EXIT_ERROR;
+  if (!isCollabcastError(err)) return EXIT_ERROR;
   if (err.code === 'unavailable') return EXIT_UNAVAILABLE;
   return DENIED_CODES.has(err.code) ? EXIT_DENIED : EXIT_ERROR;
 }
 
 /**
- * Render a failure for a human. A WalkieError is already written for one, so it is printed as
- * `walkie [code]: message` with its detail folded in. Anything else is a bug in this program
+ * Render a failure for a human. A CollabcastError is already written for one, so it is printed as
+ * `collabcast [code]: message` with its detail folded in. Anything else is a bug in this program
  * and prints only its message — never a stack trace, which is noise to an operator and can
  * carry filesystem paths.
  *
@@ -65,13 +65,13 @@ export function exitCodeFor(err) {
  * @returns {string}
  */
 export function renderError(err) {
-  if (isWalkieError(err)) {
+  if (isCollabcastError(err)) {
     const detail =
       err.detail === undefined ? '' : `\n  ${JSON.stringify(err.detail)}`;
-    return `walkie [${err.code}]: ${err.message}${detail}`;
+    return `collabcast [${err.code}]: ${err.message}${detail}`;
   }
   const message = err instanceof Error ? err.message : String(err);
-  return `walkie: ${message}`;
+  return `collabcast: ${message}`;
 }
 
 /**
@@ -81,7 +81,7 @@ export function renderError(err) {
 export function buildProgram() {
   const program = new Command();
   program
-    .name('walkie')
+    .name('collabcast')
     .description('Two-way radio for coding agents and their operator')
     .version(pkg.version)
     // Commander's default is to call process.exit itself; `run` owns exits.
@@ -90,12 +90,12 @@ export function buildProgram() {
 
   program
     .command('init')
-    .description('Initialize .walkie-talkie/ here and register its namespace')
+    .description('Initialize .collabcast/ here and register its namespace')
     .option('--operator <name>', 'Operator display name (defaults to git config user.name, then OS username)')
     .option('--name <projectName>', 'Project name (defaults to directory name)')
     .option('--namespace <namespace>', 'Channel namespace (defaults to a folded project name)')
     .option('--mode <mode>', 'managed (Paseo-supervised) or standalone')
-    .option('--force', 'Overwrite an existing .walkie-talkie/')
+    .option('--force', 'Overwrite an existing .collabcast/')
     .action(initCommand);
 
   program
@@ -147,7 +147,7 @@ export function buildProgram() {
     .command('ack <id>')
     .description('Acknowledge messages through a message id')
     .option('--no-mark-read', 'Acknowledge without advancing the read cursor')
-    // Must match the `walkie inbox` call being acknowledged: each view has its own cursor.
+    // Must match the `collabcast inbox` call being acknowledged: each view has its own cursor.
     .option('--include-memory-updates', 'Acknowledge the memory-inclusive view', false)
     .action(ackCommand);
 
@@ -202,7 +202,7 @@ export function buildProgram() {
   program
     .command('status')
     .description('Show service status (standalone mode only)')
-    .option('--all', 'List every walkie namespace registered on this host')
+    .option('--all', 'List every collabcast namespace registered on this host')
     .action(statusCommand);
 
   return program;
