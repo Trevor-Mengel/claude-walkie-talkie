@@ -2,10 +2,7 @@
   "mcpServers": {
     "walkie-talkie": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/walkie-talkie-mcp.js"],
-      "env": {
-        "WALKIE_TOOL": "claude-code"
-      }
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/walkie-talkie-mcp.js"]
     }
   }
 }

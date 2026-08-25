@@ -1,2 +1,4 @@
 #!/usr/bin/env node
-import('../src/mcp-server/index.js');
+import { runMcpServer } from '../src/mcp-server/index.js';
+
+await runMcpServer();

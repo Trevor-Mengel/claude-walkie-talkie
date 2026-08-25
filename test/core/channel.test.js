@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseChannel, readChannel, appendMessage, editMessage, archiveMessage } from '../../src/core/channel.js';
 import { readHistory } from '../../src/core/history.js';
@@ -98,6 +98,78 @@ describe('channel append', () => {
     const text = readFileSync(project.channelPath, 'utf8');
     expect(text).toContain('<!-- WALKIE:HEADER_END -->');
     expect(text).toContain('atomic');
+  });
+
+  // A cursor is a message id, so an id minted below an id already in the channel is a
+  // message below every reader's cursor: never delivered, to anyone, with no error. Within
+  // one process `monotonicFactory` prevents that; across a restart with a clock that stepped
+  // backwards it does not. So the id is minted under the channel write lock and floored on
+  // the highest id the file already holds, which makes ordering structural.
+  test('a generated id always exceeds the highest id already in the channel', async () => {
+    project = createTmpProject();
+    const base = {
+      type: 'broadcast',
+      fromSessionId: 'operator',
+      fromAlias: 'Trevor',
+      fromTool: 'operator',
+      mentions: [],
+      timestamp: '2026-05-14T15:30:00.000Z',
+      git: { branch: null, hash: null, userName: null, userEmail: null }
+    };
+    // An id far in the future — indistinguishable, to the append path, from a clock that
+    // has since been corrected backwards.
+    const future = '0K000000000000000000000000';
+    await appendMessage(project.channelPath, { ...base, id: future, body: 'from the future' });
+
+    const minted = await appendMessage(project.channelPath, { ...base, body: 'now' });
+    expect(minted > future, `${minted} > ${future}`).toBe(true);
+
+    const again = await appendMessage(project.channelPath, { ...base, body: 'later' });
+    expect(again > minted, `${again} > ${minted}`).toBe(true);
+
+    const { messages } = await readChannel(project.channelPath);
+    expect(messages.map((m) => m.id)).toEqual([again, minted, future]);
+  });
+
+  // A block whose marker was corrupted still carries its `id=`, and a reader's cursor may
+  // be sitting on it. The floor scan is deliberately wider than the parser for that reason.
+  test('a corrupt block still raises the floor for the next id', async () => {
+    project = createTmpProject();
+    const future = '0K000000000000000000000000';
+    await appendMessage(project.channelPath, {
+      id: future,
+      type: 'broadcast',
+      fromSessionId: 'operator',
+      fromAlias: 'Trevor',
+      fromTool: 'operator',
+      mentions: [],
+      timestamp: '2026-05-14T15:30:00.000Z',
+      git: { branch: null, hash: null, userName: null, userEmail: null },
+      body: 'from the future'
+    });
+    // Duplicate the id token: the marker no longer parses, so the block vanishes from
+    // readChannel while remaining in the file.
+    writeFileSync(
+      project.channelPath,
+      readFileSync(project.channelPath, 'utf8').replace(
+        new RegExp(`(<!-- walkie:msg [^\\n]*\\bid=${future}\\b)`),
+        `$1 id=${future}`
+      ),
+      'utf8'
+    );
+    expect((await readChannel(project.channelPath)).messages).toEqual([]);
+
+    const minted = await appendMessage(project.channelPath, {
+      type: 'broadcast',
+      fromSessionId: 'operator',
+      fromAlias: 'Trevor',
+      fromTool: 'operator',
+      mentions: [],
+      timestamp: '2026-05-14T15:31:00.000Z',
+      git: { branch: null, hash: null, userName: null, userEmail: null },
+      body: 'now'
+    });
+    expect(minted > future, `${minted} > ${future}`).toBe(true);
   });
 });
 

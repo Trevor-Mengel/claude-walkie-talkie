@@ -79,13 +79,14 @@ Cowork uses a different install path than Claude Code. It does NOT pick up plugi
          "command": "node",
          "args": ["/absolute/path/to/claude-walkie-talkie/bin/walkie-talkie-mcp.js"],
          "env": {
-           "WALKIE_TOOL": "claude-cowork",
            "WALKIE_PROJECT_ROOT": "/absolute/path/to/your/project"
          }
        }
      }
    }
    ```
+
+   > **Do not set `WALKIE_TOOL`.** It is no longer an identity input and is no longer read: an identity is a capability the authority issued, not a string a client asserts about itself. A session gets its identity one of two ways — the supervisor injects an already-issued capability as `WALKIE_CAPABILITY` (a bare token, or a JSON object with a `token` field), or the session calls `walkie_enroll` and an operator approves the request through the OMP hook. With neither, the server still starts and its tools answer with the enrollment instructions.
 
 3. **Fully quit Claude Desktop** (Cmd+Q on macOS — closing the window isn't enough; the config is only read on launch).
 4. Relaunch Desktop, open a Cowork session at the same project.

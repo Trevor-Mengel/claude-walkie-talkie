@@ -1,16 +1,30 @@
 import { startDaemon } from '../daemon/lifecycle.js';
-import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { contextForProject } from './client.js';
+import { walkieError } from '../identity/errors.js';
 
+/**
+ * Start the service for this namespace — standalone mode only.
+ *
+ * In managed mode the service is Paseo's to run. A client that spawned one would put a second
+ * writer on the same socket and the same channel file as the supervised instance.
+ */
 export async function startCommand() {
-  const cwd = process.cwd();
-  const cfgPath = join(cwd, '.walkie-talkie', 'config.json');
-  if (!existsSync(cfgPath)) {
-    console.error('No .walkie-talkie/ here. Run `walkie init` first.');
-    process.exit(1);
+  const context = contextForProject();
+  if (context.mode === 'managed') {
+    throw walkieError(
+      'forbidden',
+      `namespace "${context.namespace}" is managed: its walkie service is supervised by Paseo ` +
+        'and must not be started by a client. Start the Paseo-supervised walkie-svc for this ' +
+        'project, or set "mode": "standalone" in .walkie-talkie/config.json to run it yourself.',
+      { namespace: context.namespace, mode: context.mode }
+    );
   }
-  const cfg = JSON.parse(await readFile(cfgPath, 'utf8'));
-  const status = await startDaemon(cwd, { projectName: cfg.projectName });
-  console.log(`Daemon running on http://127.0.0.1:${status.port} (pid ${status.pid})`);
+  const status = await startDaemon({
+    canonicalRoot: context.canonicalRoot,
+    namespace: context.namespace,
+    config: context.config
+  });
+  process.stdout.write(
+    `Service for ${status.namespace} is answering${status.pid ? ` (pid ${status.pid})` : ''}.\n`
+  );
 }

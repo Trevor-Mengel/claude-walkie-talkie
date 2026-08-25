@@ -1,7 +1,11 @@
 import { clientForProject } from './client.js';
 
-export async function archiveCommand(id, opts) {
-  const client = clientForProject(process.cwd());
-  await client.archive(id, { archivedBy: 'operator', reason: opts.reason || null });
-  console.log(`Archived ${id}.`);
+/**
+ * Archive a message. v0.2 asserted `archivedBy: 'operator'`; the service now derives the
+ * archiver, and permits the operator role to archive anyone's message as moderation.
+ */
+export async function archiveCommand(id, opts = {}) {
+  const { api } = clientForProject();
+  await api.archive(id, { reason: opts.reason ?? null });
+  process.stdout.write(`Archived ${id}.\n`);
 }

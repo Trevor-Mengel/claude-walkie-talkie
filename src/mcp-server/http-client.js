@@ -1,58 +1,91 @@
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+/**
+ * Wiring for the MCP server's side of the transport.
+ *
+ * What changed from v0.2: there is no `server.port` file and no `http://127.0.0.1:<port>` base
+ * URL. The client resolves the namespace that owns its working directory, reads that
+ * namespace's config, and connects to that namespace's Unix socket. It cannot reach another
+ * namespace's service, and it never starts one.
+ *
+ * The bearer token lives in `tokenBox`, written only by the capability holder and read only by
+ * the HTTP client. Nothing here returns it.
+ */
 
-export function clientForRoot(projectRoot) {
-  const portFile = join(projectRoot, '.walkie-talkie', 'server.port');
-  if (!existsSync(portFile)) {
-    throw new Error(`daemon not running at ${projectRoot}; start it first`);
-  }
-  const port = Number(readFileSync(portFile, 'utf8').trim());
-  const base = `http://127.0.0.1:${port}`;
+import { createApiClient } from '../client/api.js';
+import { resolveClientContext } from '../client/context.js';
+import { openEventStream } from '../client/events.js';
+import { createCapabilityHolder } from './capability.js';
 
-  async function req(method, path, body) {
-    const res = await fetch(`${base}${path}`, {
-      method,
-      headers: body ? { 'content-type': 'application/json' } : {},
-      body: body ? JSON.stringify(body) : undefined
-    });
-    const text = await res.text();
-    let parsed;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text;
+/**
+ * Wrap every API method so a single `unauthenticated` answer invalidates the whole process's
+ * authority state. Without this, one route rejecting the bearer while others still accept a
+ * cached identity is exactly the v0.2 split-brain.
+ *
+ * @template T
+ * @param {T} api
+ * @param {() => void} onUnauthenticated
+ * @returns {T}
+ */
+function guardApi(api, onUnauthenticated) {
+  const guarded = {};
+  for (const [key, value] of Object.entries(api)) {
+    if (typeof value !== 'function') {
+      guarded[key] = value;
+      continue;
     }
-    if (!res.ok) {
-      const err = new Error(
-        `HTTP ${res.status}: ${typeof parsed === 'string' ? parsed : parsed.error || parsed.status}`
-      );
-      err.status = res.status;
-      err.body = parsed;
-      throw err;
-    }
-    return parsed;
+    guarded[key] = async (...args) => {
+      try {
+        return await value(...args);
+      } catch (err) {
+        if (err?.code === 'unauthenticated') onUnauthenticated();
+        throw err;
+      }
+    };
   }
+  return /** @type {T} */ (guarded);
+}
+
+/**
+ * Build the client stack for one MCP server process.
+ *
+ * @param {string} cwd a directory inside the namespace's registered root
+ * @param {{env?:Record<string,string|undefined>, runtimeRoot?:string}} [opts]
+ */
+export function clientForRoot(cwd, { env = process.env, runtimeRoot } = {}) {
+  const context = resolveClientContext({ cwd, env, runtimeRoot });
+  const tokenBox = { value: null };
+  const raw = createApiClient({
+    endpoint: context.endpoint,
+    namespace: context.namespace,
+    mode: context.mode,
+    token: () => tokenBox.value
+  });
+
+  /** @type {ReturnType<typeof createCapabilityHolder>} */
+  let capability;
+  const api = guardApi(raw, () => capability?.noteUnauthenticated());
+  capability = createCapabilityHolder({
+    api: raw,
+    tokenBox,
+    namespace: context.namespace,
+    env
+  });
 
   return {
-    base,
-    health: () => req('GET', '/health'),
-    latest: (limit = 5, includeArchived = false) =>
-      req('GET', `/channel/latest?limit=${limit}&include_archived=${includeArchived}`),
-    since: (id) => req('GET', `/channel/since/${id}`),
-    message: (id) => req('GET', `/channel/message/${id}`),
-    post: (data) => req('POST', '/channel/message', data),
-    edit: (id, data) => req('PATCH', `/channel/message/${id}`, data),
-    archive: (id, data) => req('POST', `/channel/message/${id}/archive`, data),
-    sessions: () => req('GET', '/sessions'),
-    join: (data) => req('POST', '/sessions/join', data),
-    rename: (id, alias) => req('POST', `/sessions/${id}/rename`, { alias }),
-    invite: (alias) => req('POST', '/sessions/invite', { alias }),
-    grantPermit: (data) => req('POST', '/permits', data),
-    revokePermit: (sessionId) => req('DELETE', `/permits/${sessionId}`),
-    inbox: (id, opts = {}) =>
-      req(
-        'GET',
-        `/sessions/${id}/inbox?include_memory_updates=${opts.includeMemoryUpdates === true}`
-      )
+    context,
+    api,
+    capability,
+    /**
+     * Subscribe to the channel feed with this session's credential.
+     * @param {(name:string, data:unknown)=>void} onEvent
+     * @param {(err:Error)=>void} [onError]
+     */
+    events: (onEvent, onError) =>
+      openEventStream({
+        endpoint: context.endpoint,
+        token: tokenBox.value,
+        context: { namespace: context.namespace, mode: context.mode },
+        onEvent,
+        onError
+      })
   };
 }
