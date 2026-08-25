@@ -12,7 +12,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['18', '20', '22']
+        # engines.node is >=22 and better-sqlite3@13 requires it, so 18 and 20 were
+        # testing versions this package explicitly does not support.
+        node: ['22']
     name: test (Node ${{ matrix.node }})
     steps:
       - uses: actions/checkout@v4

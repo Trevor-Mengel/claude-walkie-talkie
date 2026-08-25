@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "eslint": "^9.0.0",
+    "globals": "^17.11.0",
     "prettier": "^3.2.0",
     "supertest": "^7.0.0",
     "vitest": "^1.6.0"
