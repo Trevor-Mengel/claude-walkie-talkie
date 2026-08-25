@@ -77,6 +77,23 @@ function ask(port) {
 }
 
 describe('the ephemeral-port hazard this harness exists to remove', () => {
+  // Whether this hazard exists AT ALL is platform-specific, and that is a fact about the
+  // harness's value rather than a caveat on this test.
+  //
+  // darwin: binding `0.0.0.0:P` while a foreign `127.0.0.1:P` listener already exists
+  //   SUCCEEDS. Both listeners coexist and the kernel routes a loopback request to the more
+  //   specific bind — so a stranger answers our request. That is the silent wrong answer that
+  //   landed on an unrelated test once every few runs, and it is the whole reason
+  //   `installLoopbackBinding` exists.
+  // linux: the same bind is REFUSED with EADDRINUSE, so the collision cannot happen and the
+  //   harness is belt-and-braces there.
+  //
+  // Asserting the darwin behaviour unconditionally made this file fail the first time it ever
+  // ran on Linux CI — green on every developer Mac, red on ubuntu. Both branches are asserted
+  // rather than skipped, so neither platform loses coverage and the difference is documented
+  // where someone debugging it will look.
+  const hazardIsReal = process.platform === 'darwin';
+
   test('a wildcard bind coexists with a foreign loopback listener, which then answers for it', async () => {
     const held = await bind(stranger(), 0, '127.0.0.1');
     const port = held.port;
@@ -84,6 +101,14 @@ describe('the ephemeral-port hazard this harness exists to remove', () => {
     // An explicit wildcard host is left alone by the harness, which is what makes this
     // assertion possible: it is the bind supertest used to get, reproduced deliberately.
     const ours = http.createServer((_req, res) => res.end('ours'));
+
+    if (!hazardIsReal) {
+      // Refusing the bind IS the safe outcome — there is no coexistence for a stranger to
+      // answer through, so there is nothing here for the harness to prevent.
+      await expect(bind(ours, port, '0.0.0.0')).rejects.toMatchObject({ code: 'EADDRINUSE' });
+      return;
+    }
+
     await expect(bind(ours, port, '0.0.0.0')).resolves.toMatchObject({ port });
 
     // Two listeners, one port, and the loopback request goes to the stranger. This is the

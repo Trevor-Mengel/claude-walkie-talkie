@@ -546,10 +546,25 @@ describe('publishing', () => {
           store.db.prepare('SELECT COUNT(*) AS n FROM capability WHERE revoked_at IS NULL').get().n
         ).toBe(1);
         // The losers really did take the EEXIST path: their rows are present and revoked.
-        expect(
-          store.db.prepare('SELECT COUNT(*) AS n FROM capability WHERE revoked_at IS NOT NULL').get()
-            .n
-        ).toBe(RACERS - 1);
+        //
+        // Derived from the rows rather than pinned at RACERS - 1, because the number that MINT
+        // is not guaranteed to be RACERS. A racer that arrives after the winner has published
+        // finds a valid credential, takes `inspectExisting`'s reuse path, and never mints at
+        // all — correct product behaviour, and indistinguishable from a loser in `outcomes`
+        // since both report `source: 'file'`. Pinning RACERS - 1 asserted one particular
+        // interleaving and went red under full-suite load at roughly 1 run in 20, reporting
+        // "expected 4 to be 5" for a store that was in a perfectly valid state.
+        //
+        // What must hold for EVERY interleaving is asserted instead: at least one capability
+        // exists, no more than one per racer, and all but the published one are revoked — so a
+        // live orphan nobody holds, or collateral revocation of the winner, still fails here.
+        const total = store.db.prepare('SELECT COUNT(*) AS n FROM capability').get().n;
+        const revoked = store.db
+          .prepare('SELECT COUNT(*) AS n FROM capability WHERE revoked_at IS NOT NULL')
+          .get().n;
+        expect(total).toBeGreaterThanOrEqual(1);
+        expect(total).toBeLessThanOrEqual(RACERS);
+        expect(revoked, `${total} capabilities, ${revoked} revoked`).toBe(total - 1);
         expect(readdirSync(runtimeRoot).filter((name) => name.includes('.tmp.'))).toEqual([]);
       } finally {
         for (const w of workers) w.child.kill('SIGKILL');
